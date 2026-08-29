@@ -1,0 +1,185 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Font name="DUIFont_Test" inherits="GameFontNormal" virtual="true" justifyV="MIDDLE" justifyH="CENTER">
+    </Font>
+
+    <!-- FontFamily is a Retail-only XML type.  These legacy base Font objects keep
+         every inherited font name intact; FontUtil applies the locale-specific
+         face after initialization. -->
+    <Font name="DUIFontFamily_Serif_18" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" virtual="true">
+        <FontHeight><AbsValue val="18"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Serif_16" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" virtual="true">
+        <FontHeight><AbsValue val="16"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Serif_12" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" virtual="true">
+        <FontHeight><AbsValue val="12"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Serif_12_Outline" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" outline="NORMAL" virtual="true">
+        <FontHeight><AbsValue val="12"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Serif_10" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" virtual="true">
+        <FontHeight><AbsValue val="10"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Serif_10_Outline" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" outline="NORMAL" virtual="true">
+        <FontHeight><AbsValue val="10"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Serif_8" font="Interface\AddOns\DialogueUI-Ascension\Fonts\frizqt__.ttf" virtual="true">
+        <FontHeight><AbsValue val="8"/></FontHeight>
+    </Font>
+    <Font name="DUIFontFamily_Trajan_18" font="Interface\AddOns\DialogueUI-Ascension\Fonts\TrajanPro3SemiBold.ttf" virtual="true">
+        <FontHeight><AbsValue val="18"/></FontHeight>
+    </Font>
+
+
+    <Font name="DUIFont_Quest_Title_18" inherits="DUIFontFamily_Serif_18" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_Title_16" inherits="DUIFontFamily_Serif_16" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_SubHeader" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_Paragraph" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_Gossip" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_Quest" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.87" g="0.86" b="0.75"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_Disabled" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.50" g="0.36" b="0.24"/>
+    </Font>
+
+    <Font name="DUIFont_Quest_MultiLanguage" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.416" g="0.18" b="0.165"/>
+    </Font>
+
+
+    <Font name="DUIFont_Settings_Disabled" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="MIDDLE" justifyH="LEFT">
+        <Color r="0.50" g="0.36" b="0.24"/>
+    </Font>
+
+
+    <Font name="DUIFont_ItemCount" font="Interface\AddOns\DialogueUI-Ascension\Fonts\ARIALN.ttf" outline="NORMAL" virtual="true" justifyV="BOTTOM" justifyH="RIGHT">
+        <FontHeight><AbsValue val="10"/></FontHeight>
+        <Color r="1.0" g="1.0" b="1.0"/>
+    </Font>
+
+    <Font name="DUIFont_Item" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_ItemSelect" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_QuestType_Right" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="RIGHT">
+        <Color r="0.70" g="0.70" b="0.70"/>
+    </Font>
+
+    <Font name="DUIFont_QuestType_Left" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Hotkey" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="MIDDLE" justifyH="CENTER">
+        <Color r="0.70" g="0.70" b="0.70"/>
+    </Font>
+
+    <Font name="DUIFont_AlertFont" inherits="DUIFontFamily_Serif_12_Outline" virtual="true" justifyV="TOP" justifyH="RIGHT">
+        <Color r="0.87" g="0.86" b="0.75"/>
+		<Shadow>
+			<Offset>
+				<AbsDimension x="1" y="-1"/>
+			</Offset>
+			<Color r="0" g="0" b="0"/>
+		</Shadow>
+    </Font>
+
+    <Font name="DUIFont_ChatFont" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="1" g="1" b="1"/>
+		<Shadow>
+			<Offset>
+				<AbsDimension x="1" y="-1"/>
+			</Offset>
+			<Color r="0" g="0" b="0"/>
+		</Shadow>
+    </Font>
+
+    <Font name="DUIFont_Tooltip_Large" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.9" g="0.9" b="0.9"/>
+    </Font>
+
+    <Font name="DUIFont_Tooltip_Medium" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.9" g="0.9" b="0.9"/>
+    </Font>
+
+    <Font name="DUIFont_Tooltip_Small" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.9" g="0.9" b="0.9"/>
+    </Font>
+
+
+    <Font name="DUIFont_NameplateGossip" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="CENTER">
+        <Color r="0.87" g="0.86" b="0.75"/>
+    </Font>
+
+
+    <Font name="DUIFont_MenuButton_Normal" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="MIDDLE" justifyH="LEFT">
+        <Color r="0.87" g="0.86" b="0.75"/>
+    </Font>
+
+    <Font name="DUIFont_MenuButton_Highlight" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="MIDDLE" justifyH="LEFT">
+        <Color r="0.87" g="0.86" b="0.75"/>
+    </Font>
+
+
+    <Font name="DUIFont_AlertHeader" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="MIDDLE" justifyH="LEFT">
+        <Color r="0.7" g="0.7" b="0.7"/>
+    </Font>
+
+
+    <Font name="DUIFont_Book_Title" inherits="DUIFontFamily_Trajan_18" virtual="true" justifyV="TOP" justifyH="CENTER">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Book_H3" inherits="DUIFontFamily_Serif_18" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Book_H2" inherits="DUIFontFamily_Serif_16" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Book_H1" inherits="DUIFontFamily_Serif_16" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Book_Paragraph" inherits="DUIFontFamily_Serif_12" virtual="true" justifyV="TOP" justifyH="LEFT">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Book_10" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="TOP" justifyH="CENTER">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+
+    <!--AutoFit FontString-->
+    <Font name="DUIFont_Constant_10" inherits="DUIFontFamily_Serif_10" virtual="true" justifyV="MIDDLE" justifyH="CENTER">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+    <Font name="DUIFont_Constant_8" inherits="DUIFontFamily_Serif_8" virtual="true" justifyV="MIDDLE" justifyH="CENTER">
+        <Color r="0.19" g="0.17" b="0.13"/>
+    </Font>
+
+
+    <Font name="DUIFont_Dummy" inherits="DUIFontFamily_Serif_12" virtual="true"/>
+</Ui>

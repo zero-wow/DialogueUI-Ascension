@@ -1,0 +1,183 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="BookUI_Component.lua"/>
+    <Script file="BookUI_Atlas.lua"/>
+    <Script file="BookUI.lua"/>
+
+    <Frame name="DUIDebugAreaTemplate" setAllPoints="true" hidden="true" virtual="true">
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="BG" setAllPoints="true">
+                    <Color r="1" g="0" b="0" a="0.2"/>
+                </Texture>
+            </Layer>
+        </Layers>
+    </Frame>
+
+    <Button name="DUIBookPageButtonTemplate" virtual="true">
+        <Size x="40" y="40"/>
+        <Layers>
+            <Layer level="BORDER">
+                <Texture parentKey="Highlight" hidden="true" setAllPoints="true">
+                </Texture>
+            </Layer>
+            <Layer level="BORDER">
+                <Texture parentKey="Background" setAllPoints="true">
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <FontString parentKey="PageText" inherits="DUIFont_Book_10" justifyH="CENTER" justifyV="MIDDLE" text="1">
+                    <Anchors>
+                        <Anchor point="CENTER" relativePoint="CENTER" x="0" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+    </Button>
+
+    <Frame name="DUIBookItemButtonTemplate" hidden="false" virtual="true">
+        <Size x="64" y="64"/>
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString parentKey="ItemText" inherits="DUIFont_Book_10" justifyH="LEFT" justifyV="MIDDLE" hidden="true">
+                    <Anchors>
+                        <Anchor point="CENTER"/>
+                    </Anchors>
+                </FontString>
+                <Texture parentKey="ItemBorder" hidden="true">
+                    <Size x="64" y="64"/>
+                    <Anchors>
+                        <Anchor point="LEFT"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+            <Layer level="ARTWORK">
+                <Texture parentKey="ItemIcon" hidden="true">
+                    <Size x="64" y="64"/>
+                    <Anchors>
+                        <Anchor point="CENTER" relativePoint="CENTER"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="TextBackground" hidden="true" alpha="0.4">
+                    <Anchors>
+                        <Anchor point="CENTER" relativePoint="CENTER"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                self.ItemIcon:ClearAllPoints();
+                self.ItemIcon:SetPoint("CENTER", self.ItemBorder, "CENTER");
+                self.TextBackground:ClearAllPoints();
+                self.TextBackground:SetPoint("CENTER", self.ItemText, "CENTER");
+            </OnLoad>
+        </Scripts>
+    </Frame>
+
+    <Frame name="DUIBookFrame" hidden="true" frameStrata="DIALOG" toplevel="true">
+        <Anchors>
+            <Anchor point="LEFT" relativeTo="UIParent" relativePoint="LEFT" x="48"/>
+        </Anchors>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="ScreenVignette" file="Interface\AddOns\DialogueUI-Ascension\Art\Book\ScreenDarken.tga" hidden="false">
+
+                </Texture>
+            </Layer>
+        </Layers>
+        <Frames>
+            <ScrollFrame parentKey="ScrollFrame">
+                <ScrollChild>
+                    <Frame parentKey="ScrollChild">
+                        <Size x="16" y="16"/>
+                    </Frame>
+                </ScrollChild>
+            </ScrollFrame>
+
+            <Frame parentKey="Header" frameLevel="10">
+                <Anchors>
+                    <Anchor point="TOP"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <Texture parentKey="HeaderScrollOverlap" hidden="true">
+                            <Size x="768" y="32"/>
+                            <Anchors>
+                                <Anchor point="CENTER" relativePoint="TOP" y="0"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                    <Layer level="OVERLAY">
+                        <Texture parentKey="HeaderDivider" hidden="false">
+                            <Size x="768" y="64"/>
+                            <Anchors>
+                                <Anchor point="BOTTOM" relativePoint="TOP" y="-6"/>
+                            </Anchors>
+                        </Texture>
+
+                        <!-- Transparent compatibility handle.  The legacy renderer has no
+                             mask regions, so the divider remains continuous. -->
+                        <Texture parentKey="HeaderDividerExclusion" alpha="0">
+                            <Size x="1" y="80"/>
+                            <Anchors>
+                                <Anchor point="CENTER" relativePoint="CENTER"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <Scripts>
+                    <OnLoad>
+                        local bookFrame = self:GetParent();
+                        self.HeaderScrollOverlap:ClearAllPoints();
+                        self.HeaderScrollOverlap:SetPoint("CENTER", bookFrame.ScrollFrame, "TOP", 0, 0);
+                        self.HeaderDivider:ClearAllPoints();
+                        self.HeaderDivider:SetPoint("BOTTOM", bookFrame.ScrollFrame, "TOP", 0, -6);
+                        self.HeaderDividerExclusion:ClearAllPoints();
+                        self.HeaderDividerExclusion:SetPoint("CENTER", self.HeaderDivider, "CENTER");
+                    </OnLoad>
+                </Scripts>
+            </Frame>
+
+            <Frame parentKey="Footer" frameLevel="10">
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <Texture parentKey="FooterDivider" hidden="true">
+                            <Size x="768" y="32"/>
+                            <Anchors>
+                                <Anchor point="CENTER" relativePoint="BOTTOM" y="0"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <Scripts>
+                    <OnLoad>
+                        local bookFrame = self:GetParent();
+                        self.FooterDivider:ClearAllPoints();
+                        self.FooterDivider:SetPoint("CENTER", bookFrame.ScrollFrame, "BOTTOM", 0, 0);
+                    </OnLoad>
+                </Scripts>
+            </Frame>
+
+            <Frame parentKey="ContentFrame">
+                <Frames>
+                    <Frame inherits="DUIDebugAreaTemplate"/>
+                </Frames>
+            </Frame>
+
+            <!--Frame parentKey="DebugArea" inherits="DUIDebugAreaTemplate"/-->
+        </Frames>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIBookUIMixin) do
+                    self[key] = value;
+                end
+                self:OnLoad();
+            </OnLoad>
+            <OnShow>self:OnShow();</OnShow>
+            <OnHide>self:OnHide();</OnHide>
+            <OnMouseUp>self:OnMouseUp(button);</OnMouseUp>
+        </Scripts>
+    </Frame>
+</Ui>

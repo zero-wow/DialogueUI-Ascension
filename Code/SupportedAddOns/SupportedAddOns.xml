@@ -1,0 +1,21 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="TranslatorPublic.lua"/>
+    <Script file="VoiceoverPublic.lua"/>
+
+    <Script file="SupportedAddOns.lua"/>
+    <Script file="Ascension.lua"/>
+
+    <Script file="Wholly.lua"/>
+    <Script file="Roleplay.lua"/>
+    <Script file="Pawn.lua"/>
+    <Script file="InteractiveWormholes.lua"/>
+    <Script file="Rematch.lua"/>
+    <Script file="BtWQuests.lua"/>
+    <Script file="MultiLanguage.lua"/>
+    <Script file="CzechQuests.lua"/>
+    <Script file="WowUkrainizer.lua"/>
+    <Script file="ChattyLittleNpc.lua"/>
+    <Script file="WorldFrameAddOns.lua"/>
+
+    <Script file="Platine1AddOns.lua"/>
+</Ui>

@@ -1,0 +1,21 @@
+# World of Warcraft client/account state
+WTF/
+Cache/
+Logs/
+
+# Local editor configuration
+.vscode/
+.idea/
+*.code-workspace
+
+# Generated diagnostics and compiler output
+luac.out
+Fonts/Log.txt
+*.luac
+*.log
+*.tmp
+*.bak
+
+# Operating-system metadata
+Thumbs.db
+.DS_Store

@@ -1,0 +1,556 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="Settings_Definitions.lua"/>
+    <Script file="Settings_Font.lua"/>
+    <Script file="Settings_Keybinding.lua"/>
+    <Script file="Settings_DropdownMenu.lua"/>
+    <Script file="Settings.lua"/>
+
+    <Button name="DUIDialogSettingsTabButtonTemplate" registerForClicks="LeftButtonUp" virtual="true">
+        <Size x="72" y="36"/>
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString parentKey="Name" inherits="DUIFont_Quest_Quest" justifyH="CENTER" justifyV="MIDDLE">
+                    <Anchors>
+                        <Anchor point="CENTER" relativePoint="CENTER" x="0" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsTabButtonMixin) do
+                    self[key] = value;
+                end
+            </OnLoad>
+            <OnEnter>self:OnEnter(motion);</OnEnter>
+            <OnLeave>self:OnLeave(motion);</OnLeave>
+            <OnClick>self:OnClick(button, down);</OnClick>
+            <OnMouseDown>self:OnMouseDown(button);</OnMouseDown>
+            <OnMouseUp>self:OnMouseUp(button);</OnMouseUp>
+        </Scripts>
+    </Button>
+
+    <Frame name="DUIDialogSettingsTextureFrameTemplate" virtual="true">
+        <Size x="16" y="16"/>
+        <Layers>
+            <Layer level="OVERLAY">
+                <Texture parentKey="Texture" setAllPoints="true"/>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                local parent = self:GetParent();
+                if parent then
+                    self:SetFrameLevel(parent:GetFrameLevel());
+                end
+            </OnLoad>
+        </Scripts>
+    </Frame>
+
+    <Button name="DUIDialogSettingsCheckboxTemplate" virtual="true">
+        <Size x="24" y="24"/>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="Background" setAllPoints="true">
+                    <TexCoords left="0.5" right="1" top="0" bottom="0.5"/>
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <Texture parentKey="Check">
+                    <Size x="12" y="12"/>
+                    <Anchors>
+                        <Anchor point="CENTER"/>
+                    </Anchors>
+                    <TexCoords left="0.0625" right="0.4375" top="0.5625" bottom="0.9375"/>
+                </Texture>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsCheckboxMixin) do
+                    self[key] = value;
+                end
+            </OnLoad>
+            <OnEnter>self:OnEnter(motion);</OnEnter>
+            <OnLeave>self:OnLeave(motion);</OnLeave>
+            <OnClick>self:OnClick(button, down);</OnClick>
+        </Scripts>
+    </Button>
+
+    <Frame name="DUIDialogSettingsArrowOptionTemplate" virtual="true">
+        <Size x="168" y="24"/>
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString parentKey="ValueText" inherits="DUIFont_Quest_SubHeader" justifyH="CENTER" justifyV="MIDDLE" text="Value">
+                    <Size x="120"/>
+                    <Anchors>
+                        <Anchor point="TOP" relativePoint="TOP" x="0" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Frames>
+            <Button parentKey="LeftArrow" motionScriptsWhileDisabled="true">
+                <Size x="24" y="32"/>
+                <Anchors>
+                    <Anchor point="LEFT" relativePoint="LEFT" x="0"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Texture">
+                            <Size x="24" y="24"/>
+                            <Anchors>
+                                <Anchor point="CENTER"/>
+                            </Anchors>
+                            <TexCoords left="0.5" right="0" top="0" bottom="0.5"/>
+                        </Texture>
+                    </Layer>
+                    <Layer level="HIGHLIGHT">
+                        <Texture parentKey="Highlight">
+                            <Anchors>
+                                <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
+                                <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
+                            </Anchors>
+                            <TexCoords left="1" right="0.5" top="0" bottom="0.5"/>
+                        </Texture>
+                    </Layer>
+                </Layers>
+            </Button>
+            <Button parentKey="RightArrow" motionScriptsWhileDisabled="true">
+                <Size x="24" y="32"/>
+                <Anchors>
+                    <Anchor point="RIGHT" relativePoint="RIGHT" x="0"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Texture">
+                            <Size x="24" y="24"/>
+                            <Anchors>
+                                <Anchor point="CENTER"/>
+                            </Anchors>
+                            <TexCoords left="0" right="0.5" top="0" bottom="0.5"/>
+                        </Texture>
+                    </Layer>
+                    <Layer level="HIGHLIGHT">
+                        <Texture parentKey="Highlight">
+                            <Anchors>
+                                <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
+                                <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
+                            </Anchors>
+                            <TexCoords left="0.5" right="1" top="0" bottom="0.5"/>
+                        </Texture>
+                    </Layer>
+                </Layers>
+            </Button>
+        </Frames>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsArrowOptionMixin) do
+                    self[key] = value;
+                end
+                self.LeftArrow.Highlight:ClearAllPoints();
+                self.LeftArrow.Highlight:SetPoint("TOPLEFT", self.LeftArrow.Texture, "TOPLEFT");
+                self.LeftArrow.Highlight:SetPoint("BOTTOMRIGHT", self.LeftArrow.Texture, "BOTTOMRIGHT");
+                self.RightArrow.Highlight:ClearAllPoints();
+                self.RightArrow.Highlight:SetPoint("TOPLEFT", self.RightArrow.Texture, "TOPLEFT");
+                self.RightArrow.Highlight:SetPoint("BOTTOMRIGHT", self.RightArrow.Texture, "BOTTOMRIGHT");
+                self:OnLoad();
+            </OnLoad>
+        </Scripts>
+    </Frame>
+
+    <Frame name="DUIDropdownMenuTemplate" virtual="true">
+        <Size x="256" y="128"/>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="Background">
+                    <Anchors>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="8" y="-8"/>
+                        <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-8" y="8"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="Border">
+                    <TexCoords left="0" right="0.25" top="0" bottom="0.25"/>
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <FontString parentKey="NoContentAlert" inherits="DUIFont_MenuButton_Normal" justifyH="CENTER" justifyV="MIDDLE" hidden="true">
+                    <Anchors>
+                        <Anchor point="CENTER" relativePoint="CENTER" x="0" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Frames>
+            <Frame parentKey="BottomShadow">
+                <Size x="336" y="128"/>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Left">
+                            <Size x="32" y="128"/>
+                            <Anchors>
+                                <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
+                                <Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT"/>
+                            </Anchors>
+                        </Texture>
+                        <Texture parentKey="Right">
+                            <Size x="32" y="128"/>
+                            <Anchors>
+                                <Anchor point="TOPRIGHT" relativePoint="TOPRIGHT"/>
+                                <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
+                            </Anchors>
+                        </Texture>
+                        <Texture parentKey="Center">
+                            <Anchors>
+                                <Anchor point="TOPLEFT" relativePoint="TOPRIGHT"/>
+                                <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMLEFT"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <Scripts>
+                    <OnLoad>
+                        local parent = self:GetParent();
+                        if parent then
+                            self:SetFrameLevel(parent:GetFrameLevel());
+                        end
+                        self.Center:ClearAllPoints();
+                        self.Center:SetPoint("TOPLEFT", self.Left, "TOPRIGHT");
+                        self.Center:SetPoint("BOTTOMRIGHT", self.Right, "BOTTOMLEFT");
+                    </OnLoad>
+                </Scripts>
+            </Frame>
+            <Frame parentKey="ButtonHighlight" hidden="true">
+                <Size x="32" y="32"/>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="BackTexture" setAllPoints="true">
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <Scripts>
+                    <OnLoad>
+                        local parent = self:GetParent();
+                        if parent then
+                            self:SetFrameLevel(parent:GetFrameLevel());
+                        end
+                    </OnLoad>
+                </Scripts>
+            </Frame>
+            <Frame parentKey="SelectedIcon">
+                <Size x="32" y="32"/>
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <Texture parentKey="Texture" setAllPoints="true"/>
+                    </Layer>
+                </Layers>
+            </Frame>
+            <Frame parentKey="PageNav" hidden="true">
+                <Size y="24"/>
+                <Anchors>
+                    <Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT"/>
+                    <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="ARTWORK">
+                        <Texture parentKey="Background">
+                            <Size x="96" y="24"/>
+                            <Anchors>
+                                <Anchor point="CENTER"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                    <Layer level="OVERLAY">
+                        <FontString parentKey="PageText" inherits="DUIFont_Item" justifyH="CENTER" justifyV="MIDDLE" text="1 / 1">
+                            <Anchors>
+                                <Anchor point="CENTER" relativePoint="CENTER" x="0" y="0"/>
+                            </Anchors>
+                        </FontString>
+                    </Layer>
+                </Layers>
+                <Frames>
+                    <Button parentKey="LeftArrow">
+                        <Size x="18" y="18"/>
+                        <Anchors>
+                            <Anchor point="CENTER" relativePoint="CENTER" x="-32"/>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="BACKGROUND">
+                                <Texture parentKey="Texture">
+                                    <Size x="14" y="14"/>
+                                    <Anchors>
+                                        <Anchor point="CENTER"/>
+                                    </Anchors>
+                                    <TexCoords left="0.5" right="0" top="0" bottom="0.5"/>
+                                </Texture>
+                            </Layer>
+                            <Layer level="HIGHLIGHT">
+                                <Texture parentKey="Highlight">
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
+                                        <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
+                                    </Anchors>
+                                    <TexCoords left="1" right="0.5" top="0" bottom="0.5"/>
+                                </Texture>
+                            </Layer>
+                        </Layers>
+                    </Button>
+                    <Button parentKey="RightArrow">
+                        <Size x="18" y="18"/>
+                        <Anchors>
+                            <Anchor point="CENTER" relativePoint="CENTER" x="32"/>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="BACKGROUND">
+                                <Texture parentKey="Texture">
+                                    <Size x="14" y="14"/>
+                                    <Anchors>
+                                        <Anchor point="CENTER"/>
+                                    </Anchors>
+                                    <TexCoords left="0" right="0.5" top="0" bottom="0.5"/>
+                                </Texture>
+                            </Layer>
+                            <Layer level="HIGHLIGHT">
+                                <Texture parentKey="Highlight">
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
+                                        <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
+                                    </Anchors>
+                                    <TexCoords left="0.5" right="1" top="0" bottom="0.5"/>
+                                </Texture>
+                            </Layer>
+                        </Layers>
+                    </Button>
+                </Frames>
+                <Scripts>
+                    <OnLoad>
+                        self.LeftArrow.Highlight:ClearAllPoints();
+                        self.LeftArrow.Highlight:SetPoint("TOPLEFT", self.LeftArrow.Texture, "TOPLEFT");
+                        self.LeftArrow.Highlight:SetPoint("BOTTOMRIGHT", self.LeftArrow.Texture, "BOTTOMRIGHT");
+                        self.RightArrow.Highlight:ClearAllPoints();
+                        self.RightArrow.Highlight:SetPoint("TOPLEFT", self.RightArrow.Texture, "TOPLEFT");
+                        self.RightArrow.Highlight:SetPoint("BOTTOMRIGHT", self.RightArrow.Texture, "BOTTOMRIGHT");
+                    </OnLoad>
+                </Scripts>
+            </Frame>
+        </Frames>
+    </Frame>
+
+    <Button name="DUIDialogSettingsDropdownButtonTemplate" virtual="true">
+        <Size x="192" y="24"/>
+        <HitRectInsets>
+            <AbsInset left="0" right="0" top="-4" bottom="-4"/> <!--Extend Y to match ArrowOptionButton-->
+        </HitRectInsets>
+        <Layers>
+            <Layer level="ARTWORK">
+                <Texture parentKey="Background">
+                    <TexCoords left="0" right="1" top="0" bottom="0.25"/>
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <Texture parentKey="Arrow">
+                    <Size x="12" y="12"/>
+                    <Anchors>
+                        <Anchor point="RIGHT" relativePoint="RIGHT" x="-8" y="0"/>
+                    </Anchors>
+                    <TexCoords left="0" right="0.0625" top="0.875" bottom="1"/>
+                </Texture>
+                <FontString parentKey="ValueText" inherits="DUIFont_Quest_Quest" justifyH="LEFT" justifyV="MIDDLE" text="Value">
+                    <Anchors>
+                        <Anchor point="LEFT" relativePoint="LEFT" x="8" y="0"/>
+                        <Anchor point="RIGHT" relativePoint="LEFT" x="-10" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsDropdownButtonMixin) do
+                    self[key] = value;
+                end
+                self.ValueText:ClearAllPoints();
+                self.ValueText:SetPoint("LEFT", self, "LEFT", 8, 0);
+                self.ValueText:SetPoint("RIGHT", self.Arrow, "LEFT", -10, 0);
+            </OnLoad>
+            <OnEnter>self:OnEnter(motion);</OnEnter>
+            <OnLeave>self:OnLeave(motion);</OnLeave>
+            <OnClick>self:OnClick(button, down);</OnClick>
+        </Scripts>
+    </Button>
+
+    <Button name="DUIDialogSettingsOptionTemplate" virtual="true">
+        <Size x="360" y="36"/>
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString parentKey="Label" inherits="DUIFont_Quest_Paragraph" justifyH="LEFT" justifyV="MIDDLE">
+                    <Anchors>
+                        <Anchor point="LEFT" relativePoint="LEFT" x="12" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsOptionMixin) do
+                    self[key] = value;
+                end
+            </OnLoad>
+            <OnEnter>self:OnEnter(motion);</OnEnter>
+            <OnLeave>self:OnLeave(motion);</OnLeave>
+            <OnClick>self:OnClick(button, down);</OnClick>
+        </Scripts>
+    </Button>
+
+    <Button name="DUIDialogSettingsKeybindingTemplate" registerForClicks="LeftButtonUp, RightButtonUp" virtual="true">
+        <Size x="144" y="24"/>
+        <HitRectInsets>
+            <AbsInset left="0" right="0" top="-4" bottom="-4"/>
+        </HitRectInsets>
+        <Layers>
+            <Layer level="ARTWORK">
+                <Texture parentKey="Background">
+                    <TexCoords left="0" right="0.75" top="0" bottom="0.125"/>
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <FontString parentKey="ValueText" inherits="DUIFont_Quest_SubHeader" justifyH="CENTER" justifyV="MIDDLE" text="Unbound">
+                    <Size x="120"/>
+                    <Anchors>
+                        <Anchor point="CENTER" relativePoint="CENTER" x="0" y="2"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsKeybindingMixin) do
+                    self[key] = value;
+                end
+                self:OnLoad();
+            </OnLoad>
+            <OnEnter>self:OnEnter(motion);</OnEnter>
+            <OnLeave>self:OnLeave(motion);</OnLeave>
+            <OnClick>self:OnClick(button, down);</OnClick>
+            <OnMouseDown>self:OnMouseDown(button);</OnMouseDown>
+            <OnMouseUp>self:OnMouseUp(button);</OnMouseUp>
+        </Scripts>
+    </Button>
+
+    <Frame name="DUIDialogSettings" enableMouse="true" frameStrata="DIALOG" hidden="true" toplevel="true" clampedToScreen="true" movable="true">
+        <Size x="400" y="300"/>
+        <Anchors>
+            <Anchor point="CENTER"/>
+        </Anchors>
+        <Layers>
+            <Layer level="BACKGROUND">
+                <Texture parentKey="BackgroundDecor">
+                    <Anchors>
+                        <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-4" y="4"/>
+                    </Anchors>
+                </Texture>
+                <!-- Transparent compatibility handle for legacy layout code. -->
+                <Texture parentKey="DecorMask" alpha="0"/>
+            </Layer>
+            <Layer level="BORDER">
+                <Texture parentKey="HeaderDivider">
+                    <Size y="9"/>
+                </Texture>
+
+                <Texture parentKey="VerticalDivider">
+                    <Size x="9"/>
+                </Texture>
+            </Layer>
+            <Layer level="OVERLAY">
+                <Texture parentKey="Preview"/>
+                <FontString parentKey="Description" inherits="DUIFont_Quest_Paragraph" justifyH="LEFT" justifyV="TOP" spacing="4"/>
+            </Layer>
+            <Layer level="OVERLAY">
+                <Texture parentKey="PreviewBorder" hidden="true">
+                    <Anchors>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="-1" y="1"/>
+                        <Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="1" y="-1"/>
+                    </Anchors>
+                </Texture>
+            </Layer>
+        </Layers>
+        <Frames>
+            <Frame parentKey="BackgroundFrame" inherits="DUIGenericTitledFrameTemplate"/>
+            <Frame parentKey="Header" enableMouse="true">
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Selection" hidden="true">
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <Frames>
+                    <Frame parentKey="Container" setAllPoints="true"/>
+                    <Button parentKey="CloseButton">
+                        <Layers>
+                            <Layer level="BACKGROUND">
+                                <Texture parentKey="Background">
+                                </Texture>
+                            </Layer>
+                            <Layer level="ARTWORK">
+                                <Texture parentKey="Highlight" hidden="true">
+                                </Texture>
+                            </Layer>
+                            <Layer level="OVERLAY">
+                                <Texture parentKey="Icon">
+                                    <Size x="12" y="12"/>
+                                    <Anchors>
+                                        <Anchor point="CENTER"/>
+                                    </Anchors>
+                                </Texture>
+                            </Layer>
+                        </Layers>
+                    </Button>
+                </Frames>
+            </Frame>
+            <Frame parentKey="ButtonHighlight" hidden="true">
+                <Size x="32" y="32"/>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="BackTexture" setAllPoints="true">
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <Scripts>
+                    <OnLoad>
+                        local parent = self:GetParent();
+                        if parent then
+                            self:SetFrameLevel(parent:GetFrameLevel());
+                        end
+                    </OnLoad>
+                </Scripts>
+            </Frame>
+            <Frame parentKey="ScrollFrame">
+                <Frames>
+                    <Frame parentKey="Reference">
+                        <Size x="4" y="4"/>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
+                        </Anchors>
+                    </Frame>
+                </Frames>
+            </Frame>
+        </Frames>
+        <Scripts>
+            <OnLoad>
+                for key, value in pairs(DUIDialogSettingsMixin) do
+                    self[key] = value;
+                end
+                self.PreviewBorder:ClearAllPoints();
+                self.PreviewBorder:SetPoint("TOPLEFT", self.Preview, "TOPLEFT", -1, 1);
+                self.PreviewBorder:SetPoint("BOTTOMRIGHT", self.Preview, "BOTTOMRIGHT", 1, -1);
+                self:OnLoad();
+            </OnLoad>
+            <OnShow>self:OnShow_First();</OnShow>
+            <OnHide>self:OnHide();</OnHide>
+            <OnEvent>self:OnEvent(event, ...);</OnEvent>
+            <OnKeyDown>self:OnKeyDown(key);</OnKeyDown>
+            <OnMouseWheel>self:OnMouseWheel(delta);</OnMouseWheel>
+        </Scripts>
+    </Frame>
+</Ui>

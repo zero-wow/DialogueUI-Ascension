@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="Code\CallbackRegistry.lua"/>
+    <Script file="API.lua"/>
+
+    <!-- Actor/ModelScene do not exist in the 3.3.5 client.  The corresponding
+         optional model-evaluation code is disabled by the legacy API layer. -->
+    <!-- Keyboard propagation was added after 3.3.5.  Keep the inherited
+         template name, but deliberately make it inert on this client. -->
+    <Frame name="DUISetPropagateKeyboardInputTemplate" virtual="true"/>
+</Ui>

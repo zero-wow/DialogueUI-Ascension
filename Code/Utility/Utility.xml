@@ -1,0 +1,38 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="FontUtil.lua"/>
+    <Script file="ThemeUtil.lua"/>
+    <Script file="DeviceUtil.lua"/>
+    <Script file="TextureSlice.lua"/>
+    <Script file="LocaleFormatter.lua"/>
+    <Script file="TTS.lua"/>
+    <Script file="ActionThrottler.lua"/>
+    <Script file="Keybindings.lua"/>
+    <!--Script file="InteractionManager.lua"/-->
+    <Script file="DevTool.lua"/>
+
+
+    <Frame name="DUIPseudoSliceTextureTemplate" virtual="true">
+        <Layers>
+            <Layer level="OVERLAY">
+                <Texture parentKey="Slice1"/>
+                <Texture parentKey="Slice2"/>
+                <Texture parentKey="Slice3"/>
+                <Texture parentKey="Slice4"/>
+                <Texture parentKey="Slice5"/>
+                <Texture parentKey="Slice6"/>
+                <Texture parentKey="Slice7"/>
+                <Texture parentKey="Slice8"/>
+                <Texture parentKey="Slice9"/>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                local parent = self:GetParent();
+                if parent then
+                    self:SetFrameLevel(parent:GetFrameLevel());
+                end
+            </OnLoad>
+        </Scripts>
+    </Frame>
+
+</Ui>

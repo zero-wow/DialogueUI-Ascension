@@ -1,0 +1,25 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="SharedUITemplates.lua"/>
+    <Script file="GenericFrame.lua"/>
+
+    <Frame name="DUIGenericTitledFrameTemplate" setAllPoints="true" virtual="true">
+        <Layers>
+            <Layer level="BACKGROUND">
+                <!-- Legacy fallback: a normally stretched texture. -->
+                <Texture parentKey="Background" setAllPoints="true"/>
+            </Layer>
+        </Layers>
+        <Scripts>
+            <OnLoad>
+                local parent = self:GetParent();
+                if parent then
+                    self:SetFrameLevel(parent:GetFrameLevel());
+                end
+                for key, value in pairs(DUIGenericTitledFrameMixin) do
+                    self[key] = value;
+                end
+                self:OnLoad();
+            </OnLoad>
+        </Scripts>
+    </Frame>
+</Ui>

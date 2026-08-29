@@ -1,0 +1,107 @@
+--Required dbValue: AutoSelectGossip = true
+
+local _, addon = ...
+
+local AutoSelectGossip = {
+    --[gossipOptionID] = true(always), 1(select when it's the only option)
+    --Midnight
+
+    [136916] = 1,           --Delver's Guide
+    [137576] = 1,           --Research Console <Commune with the Console.>
+	[138824] = 1,			--Ritual Site Reports
+    [136045] = 1,           --(Quest) Let's spar! Armies of Darkness
+    [135188] = 1,           --(Quest) Vyrin wants you to join him at Saltheril's Haven. Silvermoon "Trader"
+
+    --Den of Nalorakk
+    [135009] = 1,           --Ethereal Pyre, teleport from entrance to the start of the first area
+    [135010] = 1,           --Ethereal Pyre, teleport back to entrance from the first area (sharing the same optionID as the Pyre at the end of the zone)
+    [136086] = 1,           --(Delve) I'll take care of this! Null-Theorist Selune
+    [134949] = 1,           --(Delve) Sounds like a plan. Lysikas
+    [136318] = 1,           --(Delve) I will save them! Fleek
+    [135798] = 1,           --(Delve) I'll stop this invasion!
+    [136275] = 1,           --(Delve) I'll deal with this mess!
+    [137619] = 1,           --(Quest) Looting and killing, understood!
+    [135634] = 1,           --(Quest) I'll take care of it!
+    [135708] = 1,           --(Delve) I'll get rid of these weeds!
+    [136317] = 1,           --(Delve) I'll get rid of these totems!
+    [136446] = 1,           --(Delve) I'll drive back the attackers.
+    [138317] = 1,           --(Quest) Deal with the big ogre. On it!
+    [136385] = 1,           --(Delve) I'll break the hexes and set your kin free.
+    [136279] = 1,           --(Delve) I'll take care of this!
+    [135865] = 1,           --(Delve) I'll deal with this!
+    [137389] = 1,           --(Quest) Deal with the big ones. Got it.
+    [136141] = 1,           --(Quest) I'll help you restore the ley lines... and show these cultists a thing or two!
+    [135811] = 1,           --(Delve) Drink this if the Bound Loa gets close? But what's it taste like?
+    [134669] = 1,           --(Quest) I'll take the devices into the portal and shut them down!
+    [135239] = 1,           --(Quest) Alright... pardon! I'll just step around you...
+    [138009] = 1,           --(Quest) I will re-align the conduits and restore the energy.
+
+    [48598] = true,         --I'd like to check my mail.   [NPC: 132969] Katy Stampwhistle
+    [55193] = true,         --Mail [NPC: 191869] Child of Ohn'ahra
+    [109275] = true,        --Reporting to duty (Time Rift)
+    [120733] = true,        --Theater Troupe
+    [132128] = true,        --Queue Horrific Visions (Stormwind)
+    [132129] = true,        --Queue Horrific Visions (Orgrimmar)
+    [132100] = true,        --Show Visions Upgrades (Horrific Visions Revisited)
+    [49742] = true,         --Horrific Visions, Garona
+
+    [45972] = true,         --A Draught of Hope. I've brought you some arcwine... drink up! (Suramar quest)
+    [45846] = 1,            --I will take your Arcwine and share it with the needy.
+
+    [107824] = 1,           --Trading Post
+    [107827] = 1,           --Trading Post
+    [107825] = 1,           --Trading Post
+    [107826] = 1,           --Trading Post
+    [121665] = 1,           --Trading Post (Dornagal)
+    [121672] = 1,           --Trading Post (Dornagal)
+
+    [123145] = 1,           --Scouting Map, Dornagal
+    [123493] = 1,           --Delver's Guide, Dornagal
+    [122660] = 1,           --Explorers' League Supplies, Dornagal
+    [120910] = 1,           --Breem, Dornagal Flight Master
+    [120333] = 1,           --World Quest, Hallowfall, Reserve Rumpus
+
+    [125367] = 1,           --DRIVE, Mobber
+
+    --Delves Start
+    [111366] = 1,           --Fungal Folly, Stoneguard Benston
+    [120018] = 1,           --Waterworks, Foreman Bruknar
+    [121502] = 1,           --Underkeep, Weaver's Instructions
+    [121408] = 1,           --Skittering Breach, Lamplighter Havrik Chayvn
+    [120540] = 1,           --Earthcrawl Mines, Lamplighter Rathling
+    [120541] = 1,           --Earthcrawl Mines, 2nd Phase, Lamplighter Rathling
+    [121526] = 1,           --The Dread Pit, Vanathia
+    [121508] = 1,           --The Dread Pit, Vant
+    [120767] = 1,           --Nightfall Sanctum, Great Kyron
+    [125516] = 1,           --Nightfall Sanctum,Nimsi Loosefire
+    [131474] = 1,           --Tak-Rethan, Pamsy
+    [121566] = 1,           --The Spiral Weave, Weaver's Instructions
+    [131402] = 1,           --Nerubian Scout, I'll clear out these goblins.
+    [131318] = 1,           --Madam Goya, I'll stop the Darkfuse and gather the Black Blood you need.
+    [133907] = 1,           --Vaultwarden Falnora, I'll recover what I can.
+    [132634] = 1,           --Engineer Fizzlepickle, I know some of those words.
+    [131152] = 1,           --Exterminator Janx, I'll get the gadget and will help your friends.
+    [134016] = 1,           --Vaultwarden Gandrus
+    [134070] = 1,           --Xeronia, I will save them.
+    [125513] = 1,           --Prospera Cogwail, (Delve)
+    [134202] = 1,           --Spymaster Casnegosa, (Delve)
+    [134281] = 1,           --Spymaster Casnegosa
+    [131159] = 1,           --Craggle Fritzbrains, (Delve)
+    [120132] = 1,           --Partially-Chewed Goblin, (Delve)
+    [131312] = 1,           --Balga Wicksfix, (Delve)
+    [120255] = 1,           --Vetiverian, (Delve)
+    [139585] = 1,           --Minchi (Delve)
+};
+
+local function IsAutoSelectOption(gossipOptionID, onlyOption)
+    if gossipOptionID then
+        if AutoSelectGossip[gossipOptionID] == true then
+            return true
+        end
+        if onlyOption then
+            return AutoSelectGossip[gossipOptionID] == 1
+        end
+    end
+    return false
+end
+addon.IsAutoSelectOption = IsAutoSelectOption;
