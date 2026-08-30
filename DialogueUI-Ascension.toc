@@ -1,13 +1,13 @@
 ## X-Expansion: WRATH
 ## Interface: 30300
-## Version: 1.0.5-d-ascension.3
+## Version: 1.0.5-d-ascension.4
 
 ## Title: Dialogue UI - Ascension
 
 ## Notes: Dialogue UI 1.0.5 d backported for Wrath 3.3.5a (Interface 30300), including Ascension.
 
 ## Author: Peterodox; legacy Ascension adaptation
-## SavedVariables: DialogueUI_DB, DialogueUI_Saves
+## SavedVariables: DialogueUI_DB, DialogueUI_Saves, DialogueUI_Diagnostics
 ## X-Original-Version: 1.0.5 d
 ## X-Original-Project: https://www.curseforge.com/wow/addons/dialogueui
 
@@ -15,6 +15,7 @@
 
 
 Compatibility.lua
+Diagnostics.lua
 Initialization.lua
 Locales\Localization.xml
 Fonts.xml

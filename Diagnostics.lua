@@ -1,0 +1,144 @@
+local addonName, addon = ...;
+
+-- Keep a small, account-wide history of this addon's own Lua errors.  This is
+-- intentionally independent of BugSack/Swatter and always chains the existing
+-- error handler so it does not hide the normal error dialog or another addon's
+-- diagnostics.
+local MAX_ERRORS = 12;
+local MAX_STACK_CHARS = 3000;
+local ERROR_MARKER = "DialogueUI-Ascension";
+
+local type = type;
+local tostring = tostring;
+local tinsert = table.insert;
+local tremove = table.remove;
+local concat = table.concat;
+local format = string.format;
+local find = string.find;
+local sub = string.sub;
+local GetTime = GetTime;
+local debugstack = debugstack;
+
+local function GetStore()
+    if type(DialogueUI_Diagnostics) ~= "table" then
+        DialogueUI_Diagnostics = {};
+    end
+
+    local store = DialogueUI_Diagnostics;
+    if type(store.errors) ~= "table" then
+        store.errors = {};
+    end
+    store.version = 1;
+    return store;
+end
+
+local function CaptureError(message)
+    message = tostring(message);
+    if not find(message, ERROR_MARKER, 1, true) then
+        return;
+    end
+
+    local stack = "(stack unavailable)";
+    if type(debugstack) == "function" then
+        local ok, result = pcall(debugstack, 3, 20, 20);
+        if ok and type(result) == "string" then
+            stack = sub(result, 1, MAX_STACK_CHARS);
+        end
+    end
+
+    local errors = GetStore().errors;
+    tinsert(errors, {
+        time = GetTime and GetTime() or 0,
+        message = message,
+        stack = stack,
+    });
+
+    while #errors > MAX_ERRORS do
+        tremove(errors, 1);
+    end
+end
+
+local function BuildReport()
+    local errors = GetStore().errors;
+    local lines = {
+        "Dialogue UI - Ascension diagnostic report",
+        "Addon: "..addonName,
+        "Version: "..tostring(GetAddOnMetadata and GetAddOnMetadata(addonName, "Version") or "unknown"),
+        "Recorded errors: "..#errors,
+        "",
+    };
+
+    if #errors == 0 then
+        tinsert(lines, "No DialogueUI-Ascension Lua errors have been recorded in this account.");
+    else
+        for i, entry in ipairs(errors) do
+            tinsert(lines, format("[%d] client time %.3f", i, tonumber(entry.time) or 0));
+            tinsert(lines, entry.message or "(missing error message)");
+            tinsert(lines, entry.stack or "(missing stack)");
+            tinsert(lines, "");
+        end
+    end
+
+    return concat(lines, "\n");
+end
+
+local function ShowReport()
+    local report = BuildReport();
+    local clipboard = addon.Clipboard;
+    if clipboard and clipboard.ShowContent then
+        clipboard:ShowContent(report);
+        local editBox = clipboard.EditBox;
+        if editBox then
+            if editBox.SetFocus then
+                editBox:SetFocus();
+            end
+            if editBox.HighlightText then
+                editBox:HighlightText();
+            end
+        end
+    elseif DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("Dialogue UI diagnostics: the report UI has not loaded yet. Run /duierrors again after login.");
+    end
+end
+
+local function ClearReport()
+    GetStore().errors = {};
+    if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("Dialogue UI diagnostics cleared.");
+    end
+end
+
+SLASH_DIALOGUEUIERRORS1 = "/duierrors";
+SlashCmdList.DIALOGUEUIERRORS = function(message)
+    if message and string.lower(message) == "clear" then
+        ClearReport();
+    else
+        ShowReport();
+    end
+end;
+
+addon.Diagnostics = {
+    CaptureError = CaptureError,
+    BuildReport = BuildReport,
+    Clear = ClearReport,
+};
+
+-- Replacing the handler is the only client-supported way to observe Lua
+-- errors.  Keep the previous handler intact and protect this recorder so a
+-- malformed report can never suppress the original error path.
+if type(geterrorhandler) == "function" and type(seterrorhandler) == "function" then
+    local previousHandler = geterrorhandler();
+    local handlingError = false;
+
+    seterrorhandler(function(message)
+        if not handlingError then
+            handlingError = true;
+            pcall(CaptureError, message);
+            handlingError = false;
+        end
+
+        if previousHandler then
+            return previousHandler(message);
+        end
+    end);
+end
