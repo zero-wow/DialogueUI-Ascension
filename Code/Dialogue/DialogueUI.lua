@@ -285,10 +285,6 @@ end
 -- of the *same* Retail panel and keep its scroll edges in fixed regions.
 -- This deliberately avoids the Retail-only TextureSlice API.
 local function CreateLegacyParchment(parent)
-    local frame = CreateFrame("Frame", nil, parent);
-    frame:SetAllPoints(parent);
-    frame:SetFrameLevel(parent:GetFrameLevel());
-
     local edgeSize = 64;
     -- Exact coordinates of the large dialogue scroll inside the original
     -- 1024x2048 Retail Parchment atlas.  Keeping the source dimensions at
@@ -302,9 +298,10 @@ local function CreateLegacyParchment(parent)
     local innerBottomV = 952/2048;
     local bottomV = 1032/2048;
     local pieces = {};
+    local controller = {pieces = pieces};
 
     local function CreatePiece(left, right, top, bottom)
-        local texture = frame:CreateTexture(nil, "BACKGROUND");
+        local texture = parent:CreateTexture(nil, "BACKGROUND");
         texture:SetTexCoord(left, right, top, bottom);
         tinsert(pieces, texture);
         return texture
@@ -320,13 +317,13 @@ local function CreateLegacyParchment(parent)
     local bottom = CreatePiece(innerLeftU, innerRightU, innerBottomV, bottomV);
     local bottomRight = CreatePiece(innerRightU, rightU, innerBottomV, bottomV);
 
-    topLeft:SetPoint("TOPLEFT");
+    topLeft:SetPoint("TOPLEFT", parent, "TOPLEFT");
     topLeft:SetSize(edgeSize, edgeSize);
-    topRight:SetPoint("TOPRIGHT");
+    topRight:SetPoint("TOPRIGHT", parent, "TOPRIGHT");
     topRight:SetSize(edgeSize, edgeSize);
-    bottomLeft:SetPoint("BOTTOMLEFT");
+    bottomLeft:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT");
     bottomLeft:SetSize(edgeSize, edgeSize);
-    bottomRight:SetPoint("BOTTOMRIGHT");
+    bottomRight:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT");
     bottomRight:SetSize(edgeSize, edgeSize);
 
     top:SetPoint("TOPLEFT", topLeft, "TOPRIGHT");
@@ -340,13 +337,32 @@ local function CreateLegacyParchment(parent)
     center:SetPoint("TOPLEFT", top, "BOTTOMLEFT");
     center:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT");
 
-    function frame:SetParchmentTexture(file)
+    function controller:SetParchmentTexture(file)
+        self.textureFile = file;
         for _, texture in ipairs(pieces) do
             texture:SetTexture(file);
         end
     end
 
-    return frame;
+    function controller:Show()
+        self.shown = true;
+        for _, texture in ipairs(pieces) do
+            texture:Show();
+        end
+    end
+
+    function controller:Hide()
+        self.shown = false;
+        for _, texture in ipairs(pieces) do
+            texture:Hide();
+        end
+    end
+
+    function controller:IsShown()
+        return self.shown;
+    end
+
+    return controller;
 end
 
 function DUIDialogBaseMixin:OnLoad()
@@ -434,10 +450,6 @@ function DUIDialogBaseMixin:OnLoad()
 
     if addon.IS_LEGACY_ASCENSION then
         self.LegacyParchment = CreateLegacyParchment(self.BackgroundFrame);
-        -- BackgroundFrame inherits the root's level on 3.3.5.  Its own child
-        -- textures can therefore end up beneath the world unless we place the
-        -- legacy slice immediately below the visible FrontFrame content.
-        self.LegacyParchment:SetFrameLevel(self.FrontFrame:GetFrameLevel() - 1);
         self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("Parchment.tga"));
         self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do

@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.12";
+local RUNTIME_BUILD = "1.0.5-d-ascension.13";
 
 local type = type;
 local tostring = tostring;
@@ -88,6 +88,19 @@ local function BuildReport()
         .."; loading="..tostring(dialogue and dialogue.isGameLoading or false));
     tinsert(lines, DescribeFrame("Settings frame", settings));
     tinsert(lines, "  UI parent alpha="..format("%.2f", UIParent:GetAlpha()));
+    local parchment = dialogue and dialogue.LegacyParchment;
+    if parchment then
+        local pieces = parchment.pieces or {};
+        local first = pieces[1];
+        local firstShown = first and first.IsShown and first:IsShown();
+        local firstTexture = first and first.GetTexture and first:GetTexture();
+        tinsert(lines, "  Legacy parchment: pieces="..#pieces
+            .."; shown="..tostring(parchment:IsShown())
+            .."; firstShown="..tostring(firstShown)
+            .."; texture="..tostring(firstTexture or parchment.textureFile));
+    else
+        tinsert(lines, "  Legacy parchment: missing");
+    end
     if state then
         tinsert(lines, "  Takeover active="..tostring(state.takeoverActive)
             .."; external handler="..tostring(state.handledExternally));
