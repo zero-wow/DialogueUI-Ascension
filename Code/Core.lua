@@ -397,9 +397,9 @@ do
 end
 
 do  --Unlisten events from default UI
-    --CustomGossipFrameManager:
-    --We need to mute this so HideUI doesn't trigger CloseGossip
-    --It handle NPE (Be A Guide) and Torghast Floor Selection
+    -- CustomGossipFrameManager owns Ascension item-driven panels such as the
+    -- Travel Permit.  Legacy DialogueUI never hides UIParent, so it must not
+    -- unregister this manager: doing so leaves those panels with no listener.
 
 
     Muter.questEvents = {
@@ -465,7 +465,9 @@ do  --Unlisten events from default UI
             Muter.muted = true;
             EL:ListenEvents(true);
 
-            Muter.customGossipEvents = SuspendRegisteredEvents(CustomGossipFrameManager, customGossipEvents);
+            if not addon.IS_LEGACY_ASCENSION then
+                Muter.customGossipEvents = SuspendRegisteredEvents(CustomGossipFrameManager, customGossipEvents);
+            end
             Muter.gossipFrameEvents = SuspendRegisteredEvents(GossipFrame, gossipFrameEvents);
 
             local hideQuestFrame = true;    --false when we do debug
@@ -482,7 +484,9 @@ do  --Unlisten events from default UI
             Muter.muted = false;
             EL:ListenEvents(false);
 
-            RestoreRegisteredEvents(CustomGossipFrameManager, Muter.customGossipEvents);
+            if not addon.IS_LEGACY_ASCENSION then
+                RestoreRegisteredEvents(CustomGossipFrameManager, Muter.customGossipEvents);
+            end
             RestoreRegisteredEvents(GossipFrame, Muter.gossipFrameEvents);
             Muter.customGossipEvents = nil;
             Muter.gossipFrameEvents = nil;
