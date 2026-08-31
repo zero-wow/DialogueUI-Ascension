@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.13";
+local RUNTIME_BUILD = "1.0.5-d-ascension.14";
 
 local type = type;
 local tostring = tostring;
@@ -94,10 +94,17 @@ local function BuildReport()
         local first = pieces[1];
         local firstShown = first and first.IsShown and first:IsShown();
         local firstTexture = first and first.GetTexture and first:GetTexture();
+        local firstAlpha = first and first.GetAlpha and first:GetAlpha();
+        local firstWidth = first and first.GetWidth and first:GetWidth();
+        local firstHeight = first and first.GetHeight and first:GetHeight();
+        local parent = parchment.parent;
         tinsert(lines, "  Legacy parchment: pieces="..#pieces
             .."; shown="..tostring(parchment:IsShown())
             .."; firstShown="..tostring(firstShown)
             .."; texture="..tostring(firstTexture or parchment.textureFile));
+        tinsert(lines, "    first alpha="..tostring(firstAlpha)
+            .."; size="..format("%.0fx%.0f", tonumber(firstWidth) or 0, tonumber(firstHeight) or 0)
+            .."; owner="..tostring(parent and parent.GetName and parent:GetName() or parent));
     else
         tinsert(lines, "  Legacy parchment: missing");
     end

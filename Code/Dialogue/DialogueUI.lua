@@ -298,7 +298,7 @@ local function CreateLegacyParchment(parent)
     local innerBottomV = 952/2048;
     local bottomV = 1032/2048;
     local pieces = {};
-    local controller = {pieces = pieces};
+    local controller = {pieces = pieces, parent = parent};
 
     local function CreatePiece(left, right, top, bottom)
         local texture = parent:CreateTexture(nil, "BACKGROUND");
@@ -449,7 +449,9 @@ function DUIDialogBaseMixin:OnLoad()
     end
 
     if addon.IS_LEGACY_ASCENSION then
-        self.LegacyParchment = CreateLegacyParchment(self.BackgroundFrame);
+        -- Root BACKGROUND regions are known to render correctly on this client
+        -- (the earlier solid diagnostic backdrop used this exact owner).
+        self.LegacyParchment = CreateLegacyParchment(self);
         self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("Parchment.tga"));
         self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
