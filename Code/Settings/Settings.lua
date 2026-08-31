@@ -40,7 +40,12 @@ local TAB_BUTTON_GAP = 4;
 
 local DISABLED_TEXTURE_ALPHA = 0.2;
 
-local PREVIEW_PATH = "Interface/AddOns/DialogueUI-Ascension/Art/PreviewPicture/";
+local PREVIEW_PATH = addon.IS_LEGACY_ASCENSION
+    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\PreviewPicture\\"
+    or "Interface/AddOns/DialogueUI-Ascension/Art/PreviewPicture/";
+local PARCHMENT_DECOR_FILE = addon.IS_LEGACY_ASCENSION
+    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\ParchmentDecor\\Dalaran.tga"
+    or "Interface/AddOns/DialogueUI-Ascension/Art/ParchmentDecor/Dalaran.tga";
 
 local MainFrame;
 
@@ -69,6 +74,13 @@ DUIDialogSettingsMixin = {};
 function DUIDialogSettingsMixin:OnLoad()
     MainFrame = self;
     addon.SettingsUI = self;
+
+    if addon.IS_LEGACY_ASCENSION then
+        -- Match the physical scale used by the legacy dialogue frame.  This
+        -- client otherwise renders the Retail layout at roughly twice size.
+        self:SetScale(0.5);
+    end
+
     addon.PixelUtil:AddPixelPerfectObject(self);
 
     SetupRepositionObject(self.Header);
@@ -102,6 +114,9 @@ function DUIDialogSettingsMixin:MoveToBestPosition()
         local viewportWidth, viewportHeight = WorldFrame:GetSize(); --height unaffected by screen resolution
         viewportWidth = math.min(viewportWidth, viewportHeight * 16/9);
         local frameWidth = self:GetWidth();
+        if addon.IS_LEGACY_ASCENSION then
+            frameWidth = frameWidth * self:GetScale();
+        end
         local offset = 0.5*frameWidth -0.5 * viewportWidth +16;
         if addon.IsDBValue("FrameOrientation", 1) then
             offset = -offset;
@@ -172,26 +187,24 @@ end
 function DUIDialogSettingsMixin:LoadTheme()
     if self.Init then return end;
 
-    local filePath = ThemeUtil:GetTexturePath();
+    self.HeaderDivider:SetTexture(ThemeUtil:GetTextureFile("Settings-Divider-H.tga"));
+    self.VerticalDivider:SetTexture(ThemeUtil:GetTextureFile("Settings-Divider-V.tga"));
+    self.PreviewBorder:SetTexture(ThemeUtil:GetTextureFile("Settings-PreviewBorder.tga"));
+    self.Header.Selection:SetTexture(ThemeUtil:GetTextureFile("Settings-TabButton-Selection.tga"));
+    self.ButtonHighlight.BackTexture:SetTexture(ThemeUtil:GetTextureFile("Settings-ButtonHighlight.tga"));
 
-    self.HeaderDivider:SetTexture(filePath.."Settings-Divider-H.tga");
-    self.VerticalDivider:SetTexture(filePath.."Settings-Divider-V.tga");
-    self.PreviewBorder:SetTexture(filePath.."Settings-PreviewBorder.tga");
-    self.Header.Selection:SetTexture(filePath.."Settings-TabButton-Selection.tga");
-    self.ButtonHighlight.BackTexture:SetTexture(filePath.."Settings-ButtonHighlight.tga");
-
-    local file1 = filePath.."Settings-CloseButton.tga";
+    local file1 = ThemeUtil:GetTextureFile("Settings-CloseButton.tga");
     self.Header.CloseButton.Background:SetTexture(file1);
     self.Header.CloseButton.Highlight:SetTexture(file1);
     self.Header.CloseButton.Icon:SetTexture(file1);
 
-    local file2 = filePath.."Settings-Checkbox.tga";
+    local file2 = ThemeUtil:GetTextureFile("Settings-Checkbox.tga");
     self.checkboxPool:ProcessAllObjects(function(widget)
         widget:LoadTexture(file2);
     end);
 
-    local file3 = filePath.."Settings-ArrowOption.tga";
-    local file4 = filePath.."Settings-ArrowOption.tga";
+    local file3 = ThemeUtil:GetTextureFile("Settings-ArrowOption.tga");
+    local file4 = file3;
     self.arrowOptionPool:ProcessAllObjects(function(widget)
         widget:LoadTexture(file3);
         widget.barPool:ProcessAllObjects(function(bar)
@@ -199,7 +212,7 @@ function DUIDialogSettingsMixin:LoadTheme()
         end);
     end);
 
-    local file5 = filePath.."Settings-Keybinding.tga";
+    local file5 = ThemeUtil:GetTextureFile("Settings-Keybinding.tga");
     self.keybindingPool:ProcessAllObjects(function(widget)
         widget:LoadTexture(file5);
     end);
@@ -208,7 +221,10 @@ function DUIDialogSettingsMixin:LoadTheme()
         self.hotkeyFramePool:CallAllObjects("LoadTheme");
     end
 
-    self.BackgroundDecor:SetTexture("Interface/AddOns/DialogueUI-Ascension/Art/ParchmentDecor/Dalaran.tga");
+    self.BackgroundDecor:SetTexture(PARCHMENT_DECOR_FILE);
+    if addon.IS_LEGACY_ASCENSION and self.BackgroundDecor.SetDrawLayer then
+        self.BackgroundDecor:SetDrawLayer("ARTWORK");
+    end
 
     local themeID;
 
@@ -979,6 +995,7 @@ local ScrollFrameMixin = {};
 function ScrollFrameMixin:SetViewSize(height)
     self.viewSize = height;
     self:SetHeight(height);
+    self.Reference:SetSize(self:GetWidth(), math.max(height, self.contentHeight or 0));
 end
 
 function ScrollFrameMixin:GetViewSize()
@@ -986,7 +1003,8 @@ function ScrollFrameMixin:GetViewSize()
 end
 
 function ScrollFrameMixin:SetScrollRange(range)
-    if range < 0 then
+    range = math.max(0, range);
+    if range <= 0 then
         range = 0;
         self.scrollBar:Hide();
         MainFrame.VerticalDivider:Show();
@@ -1004,20 +1022,23 @@ function ScrollFrameMixin:GetScrollRange()
 end
 
 function ScrollFrameMixin:SetContentHeight(contentHeight)
+    self.contentHeight = contentHeight;
+    self.Reference:SetSize(self:GetWidth(), math.max(contentHeight, self:GetViewSize()));
+    if self.UpdateScrollChildRect then
+        self:UpdateScrollChildRect();
+    end
     self:SetScrollRange(contentHeight - self:GetViewSize());
 end
 
 function ScrollFrameMixin:GetScrollOffset()
-    return self.scrollOffset or 0
+    return self:GetVerticalScroll() or self.scrollOffset or 0
 end
 
 function ScrollFrameMixin:SetScrollOffset(scrollOffset)
-    scrollOffset = Clamp(scrollOffset, 0, self.maxScrollOffset);
-    if scrollOffset ~= self.scrollOffset then
-        self.scrollOffset = scrollOffset;
-        self.Reference:SetPoint("TOPLEFT", 0, scrollOffset);
-        self.scrollBar:UpdateThumbPosition();
-    end
+    scrollOffset = Clamp(scrollOffset, 0, self.maxScrollOffset or 0);
+    self.scrollOffset = scrollOffset;
+    self:SetVerticalScroll(scrollOffset);
+    self.scrollBar:UpdateThumbPosition();
 end
 
 function ScrollFrameMixin:IsAtBottom()
@@ -1089,11 +1110,21 @@ function DUIDialogSettingsMixin:Init()
     for method, func in pairs(CloseButtonScripts) do
         CloseButton:SetScript(method, func);
     end
+    if addon.IS_LEGACY_ASCENSION then
+        -- TextureSlice supplied these bounds on Retail.  Ordinary legacy
+        -- textures need explicit anchors or the close-button skin is 0x0.
+        CloseButton.Background:SetAllPoints(CloseButton);
+        CloseButton.Highlight:SetAllPoints(CloseButton);
+    end
     CloseButton.Background:SetTexCoord(0, 0.5, 0, 0.5);
     CloseButton.Highlight:SetTexCoord(0.5, 1, 0, 0.5);
     CloseButton.Icon:SetTexCoord(0.0625, 0.1875, 0.625, 0.875);
 
     API.Mixin(self.ScrollFrame, ScrollFrameMixin);
+    self.ScrollFrame:EnableMouse(true);
+    if self.ScrollFrame.EnableMouseWheel then
+        self.ScrollFrame:EnableMouseWheel(true);
+    end
     self.ScrollFrame:SetScript("OnMouseWheel", ScrollFrameMixin.OnMouseWheel);
 
     --ScrollBar
@@ -1361,7 +1392,7 @@ function DUIDialogSettingsMixin:SelectTabByID(tabID, forceUpdate)
             numShownOptions = numShownOptions + 1;
             optionButton = self.optionButtonPool:Acquire();
             optionButton.isParentOption = nil;
-            optionButton:SetParent(self.ScrollFrame);
+            optionButton:SetParent(self.ScrollFrame.Reference);
             optionButton:SetSize(OPTIONBUTTON_WIDTH, OPTIONBUTTON_HEIGHT);
             optionButton:SetPoint("TOPLEFT", self.ScrollFrame.Reference, "TOPLEFT", 0, (1 - numShownOptions)*OPTIONBUTTON_HEIGHT);
             optionButton:SetData(optionData);
@@ -2282,10 +2313,11 @@ do  --GamePad/Controller
         --move the scroll frame if the object is partially clipped
         local top = object:GetTop();
         local bottom = object:GetBottom();
+        local coordinateScale = addon.IS_LEGACY_ASCENSION and self:GetScale() or 1;
         if top > self.scrollFrameTop then
-            self.ScrollFrame:ScrollBy(self.scrollFrameTop - top);
+            self.ScrollFrame:ScrollBy((self.scrollFrameTop - top) / coordinateScale);
         elseif bottom < self.scrollFrameBottom then
-            self.ScrollFrame:ScrollBy(self.scrollFrameBottom - bottom);
+            self.ScrollFrame:ScrollBy((self.scrollFrameBottom - bottom) / coordinateScale);
         end
     end
 end

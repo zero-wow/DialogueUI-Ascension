@@ -37,6 +37,13 @@ local HOTKEYFRAME_SIZE = 20;        --Font Size + 8
 local ITEMBUTTON_TEXT_WDITH_SHRINK = 48.0;
 local SMALLITEMBUTTON_TEXT_WIDTH_SHRINK = 24.0;
 
+-- The legacy client needs the dialogue root normalized to half scale.  Its
+-- reward and footer content otherwise ends up optically undersized inside the
+-- correctly sized Retail borders, so compensate only those child visuals.
+local LEGACY_REWARD_ICON_INSET = 3.0;
+local LEGACY_FOOTER_TEXT_SCALE = 1.2;
+local LEGACY_FOOTER_HOTKEY_TEXT_SCALE = 1.15;
+
 local GAME_PAD_CONFIRM_KEY = nil;
 
 local ANIM_DURATION_BUTTON_HOVER = 0.25;
@@ -882,6 +889,13 @@ function DUIDialogOptionButtonMixin:SetButtonArt(id)
         self.Background:SetTexture(ThemeUtil:GetTextureFile(bgName));
         self.Name:SetFontObject("DUIFont_Quest_Quest");
     end
+
+    if addon.IS_LEGACY_ASCENSION and self.isFooterButton and self.Name.SetTextHeight then
+        local _, fontHeight = self.Name:GetFont();
+        if fontHeight then
+            self.Name:SetTextHeight(fontHeight * LEGACY_FOOTER_TEXT_SCALE);
+        end
+    end
 end
 
 function DUIDialogOptionButtonMixin:LoadTheme()
@@ -1067,6 +1081,17 @@ function DUIDialogHotkeyFrameMixin:SetKey(key)
         self.key = key;
     elseif not self.useDarkTheme then
         return true
+    end
+
+    local parent = self:GetParent();
+    if addon.IS_LEGACY_ASCENSION and parent and parent.isFooterButton and self.KeyName.SetTextHeight then
+        if not self.legacyBaseFontHeight then
+            local _, fontHeight = self.KeyName:GetFont();
+            self.legacyBaseFontHeight = fontHeight;
+        end
+        if self.legacyBaseFontHeight then
+            self.KeyName:SetTextHeight(self.legacyBaseFontHeight * LEGACY_FOOTER_HOTKEY_TEXT_SCALE);
+        end
     end
 
     if key and not (key == "DISABLED" and not self.showDisabledKey) then
@@ -1419,6 +1444,12 @@ function DUIDialogItemButtonMixin:SetBackgroundTexture(id)
         fontObject = "DUIFont_ItemSelect";
     end
 
+    if addon.IS_LEGACY_ASCENSION then
+        -- Match the 12-point quest copy while retaining each theme's normal
+        -- versus selected reward colors.
+        fontObject = (id == 1) and "DUIFont_Quest_Paragraph" or "DUIFont_Quest_Quest";
+    end
+
     self.ItemBorder:SetTexture(ThemeUtil:GetTextureFile(borderFile));
     self.Background:SetTexture(ThemeUtil:GetTextureFile(bgFile));
     self.Name:SetFontObject(fontObject);
@@ -1429,7 +1460,7 @@ function DUIDialogItemButtonMixin:UpdatePixel(scale)
         scale = self:GetEffectiveScale();
     end
 
-    local iconShrink = 6.0;
+    local iconShrink = addon.IS_LEGACY_ASCENSION and LEGACY_REWARD_ICON_INSET or 6.0;
     local offset = API.GetPixelForScale(scale, iconShrink);
     self.Icon:ClearAllPoints();
     self.Icon:SetPoint("TOPLEFT", self.AreaDefinitionItemBorder, "TOPLEFT", offset, -offset);

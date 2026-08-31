@@ -792,6 +792,7 @@ end
 function DUIDialogBaseMixin:AcquireAcceptButton(enableHotkey)
     if not self.AcceptButton then
         self.AcceptButton = CreateFrame("Button", nil, self, "DUIDialogOptionButtonTemplate");   --self.FrontFrame
+        self.AcceptButton.isFooterButton = addon.IS_LEGACY_ASCENSION == true;
         self.AcceptButton.HotkeyFrame = CreateFrame("Frame", nil, self.AcceptButton, "DUIDialogHotkeyTemplate");
         self.AcceptButton:SetOwner(self);
         self.AcceptButton:SetButtonAcceptQuest();
@@ -817,6 +818,7 @@ end
 function DUIDialogBaseMixin:AcquireExitButton()
     if not self.ExitButton then
         self.ExitButton = CreateFrame("Button", nil, self, "DUIDialogOptionButtonTemplate"); --self.FrontFrame
+        self.ExitButton.isFooterButton = addon.IS_LEGACY_ASCENSION == true;
         self.ExitButton.HotkeyFrame = CreateFrame("Frame", nil, self.ExitButton, "DUIDialogHotkeyTemplate");
         self.ExitButton:SetOwner(self);
         self.ExitButton:SetButtonExitGossip();

@@ -1,6 +1,6 @@
 ## X-Expansion: WRATH
 ## Interface: 30300
-## Version: 1.0.5-d-ascension.23
+## Version: 1.0.5-d-ascension.24
 
 ## Title: Dialogue UI - Ascension
 

@@ -6,7 +6,9 @@ local API = addon.API;
 local BUTTON_SIZE = 12;
 local RAIL_WIDTH = 4;
 local THUMB_SHRINK_MULTIPILER = (BUTTON_SIZE - RAIL_WIDTH)*10;
-local FILE_PATH = "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Shared/";
+local FILE_PATH = addon.IS_LEGACY_ASCENSION
+    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Shared\\"
+    or "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Shared/";
 
 local SharedUpdater = CreateFrame("Frame");
 
@@ -53,7 +55,10 @@ do
     end
 
     function SharedUpdater:SetParentWidget(widget)
-        self.scale = 1;
+        -- Cursor coordinates are physical; convert them into the scaled
+        -- scroll bar's local units (the legacy settings/dialogue roots run at
+        -- 0.5 scale).
+        self.scale = widget:GetEffectiveScale() or 1;
         self:Stop();
         self.widget = widget;
         self.t = 0;

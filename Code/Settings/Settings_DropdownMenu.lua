@@ -143,12 +143,10 @@ function DropdownMenuMixin:OnSizeChanged()
 end
 
 function DropdownMenuMixin:LoadTheme()
-    local filePath = ThemeUtil:GetTexturePath();
-
-    local file1 = filePath.."DropdownMenu-Component.tga";
+    local file1 = ThemeUtil:GetTextureFile("DropdownMenu-Component.tga");
     self.Border:SetTexture(file1);
-    self.Background:SetTexture(filePath.."DropdownMenu-Background.tga");
-    self.ButtonHighlight.BackTexture:SetTexture(filePath.."Settings-ButtonHighlight.tga");
+    self.Background:SetTexture(ThemeUtil:GetTextureFile("DropdownMenu-Background.tga"));
+    self.ButtonHighlight.BackTexture:SetTexture(ThemeUtil:GetTextureFile("Settings-ButtonHighlight.tga"));
 
     self.BottomShadow.Left:SetTexture(file1);
     self.BottomShadow.Center:SetTexture(file1);
@@ -163,7 +161,7 @@ function DropdownMenuMixin:LoadTheme()
     self.PageNav.Background:SetTexture(file1);
     self.PageNav.Background:SetTexCoord(0, 192/1024, 336/512, 384/512);
 
-    local arrowTexture = filePath.."Settings-ArrowOption.tga";
+    local arrowTexture = ThemeUtil:GetTextureFile("Settings-ArrowOption.tga");
     self.PageNav.LeftArrow.Texture:SetTexture(arrowTexture);
     self.PageNav.LeftArrow.Highlight:SetTexture(arrowTexture);
     self.PageNav.RightArrow.Texture:SetTexture(arrowTexture);
@@ -516,6 +514,12 @@ local function CreateDropdownMenu(parent)
     local f = CreateFrame("Frame", nil, parent, "DUIDropdownMenuTemplate");
     f:Hide();
     API.Mixin(f, DropdownMenuMixin);
+
+    if addon.IS_LEGACY_ASCENSION then
+        -- The Retail TextureSlice owns the border bounds implicitly.  The
+        -- legacy texture is otherwise 0x0 even after its file loads.
+        f.Border:SetAllPoints(f);
+    end
 
 
     local function PageArrow_OnClick(self)

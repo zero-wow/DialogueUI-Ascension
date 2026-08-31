@@ -525,16 +525,13 @@
                     </OnLoad>
                 </Scripts>
             </Frame>
-            <Frame parentKey="ScrollFrame">
-                <Frames>
+            <ScrollFrame parentKey="ScrollFrame">
+                <ScrollChild>
                     <Frame parentKey="Reference">
-                        <Size x="4" y="4"/>
-                        <Anchors>
-                            <Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
-                        </Anchors>
+                        <Size x="16" y="16"/>
                     </Frame>
-                </Frames>
-            </Frame>
+                </ScrollChild>
+            </ScrollFrame>
         </Frames>
         <Scripts>
             <OnLoad>

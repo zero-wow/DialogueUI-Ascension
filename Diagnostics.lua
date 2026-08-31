@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.23";
+local RUNTIME_BUILD = "1.0.5-d-ascension.24";
 
 local type = type;
 local tostring = tostring;
@@ -78,8 +78,10 @@ local function BuildReport()
             return "  "..label..": missing";
         end
         local alpha = frame.GetEffectiveAlpha and frame:GetEffectiveAlpha() or frame:GetAlpha();
-        return format("  %s: present; shown=%s; alpha=%.2f; size=%.0fx%.0f",
+        local scale = frame.GetScale and frame:GetScale() or 1;
+        return format("  %s: present; shown=%s; alpha=%.2f; scale=%.2f; size=%.0fx%.0f",
             label, tostring(frame:IsShown()), tonumber(alpha) or 0,
+            tonumber(scale) or 1,
             tonumber(frame:GetWidth()) or 0, tonumber(frame:GetHeight()) or 0);
     end
 
@@ -107,6 +109,24 @@ local function BuildReport()
             .."; owner="..tostring(parent and parent.GetName and parent:GetName() or parent));
     else
         tinsert(lines, "  Legacy parchment: missing");
+    end
+    local settingsSlice = settings and settings.BackgroundFrame and settings.BackgroundFrame.LegacyNineSlice;
+    if settingsSlice then
+        tinsert(lines, "  Settings parchment: pieces="..#(settingsSlice.pieces or {})
+            .."; shown="..tostring(settingsSlice:IsShown())
+            .."; texture="..tostring(settingsSlice.textureFile));
+    else
+        tinsert(lines, "  Settings parchment: missing");
+    end
+    local settingsScroll = settings and settings.ScrollFrame;
+    if settingsScroll and settingsScroll.Reference then
+        tinsert(lines, "  Settings scroll: native=true; child="
+            ..format("%.0fx%.0f", tonumber(settingsScroll.Reference:GetWidth()) or 0,
+                tonumber(settingsScroll.Reference:GetHeight()) or 0)
+            .."; offset="..format("%.1f", tonumber(settingsScroll:GetVerticalScroll()) or 0)
+            .."; range="..format("%.1f", tonumber(settingsScroll.maxScrollOffset) or 0));
+    else
+        tinsert(lines, "  Settings scroll: not initialized");
     end
     tinsert(lines, "  Safe color backdrop="..tostring(dialogue and dialogue.LegacySafeBackdrop
         and dialogue.LegacySafeBackdrop:IsShown() or false));
