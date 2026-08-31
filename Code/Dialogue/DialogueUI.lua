@@ -339,6 +339,25 @@ function DUIDialogBaseMixin:OnLoad()
         tinsert(tintableTextures, piece);
     end
 
+    if addon.IS_LEGACY_ASCENSION then
+        -- Retail stretches three slices of a tall atlas as the frame grows.
+        -- That composition bleeds far outside its parent on the 3.3.5 texture
+        -- renderer.  The atlas already contains a complete scroll panel, so
+        -- use that bounded region directly on legacy clients.
+        local parchment = self.BackgroundFrame:CreateTexture(nil, "BACKGROUND", nil, -2);
+        parchment:SetAllPoints(self);
+        parchment:SetTexCoord(128/1024, 896/1024, 120/2048, 1032/2048);
+        self.LegacyParchment = parchment;
+
+        local closeButton = CreateFrame("Button", nil, self, "UIPanelCloseButton");
+        closeButton:SetPoint("TOPRIGHT", self, "TOPRIGHT", -4, -4);
+        closeButton:SetFrameLevel(self.FrontFrame:GetFrameLevel() + 10);
+        closeButton:SetScript("OnClick", function()
+            self:HideUI(true);
+        end);
+        self.LegacyCloseButton = closeButton;
+    end
+
     self.Parchments[1]:SetTexCoord(0, 1, 0, 256/2048);
     self.Parchments[1]:SetPoint("CENTER", self, "TOP", 0, 0);
 
@@ -528,8 +547,17 @@ function DUIDialogBaseMixin:LoadTheme()
     local parchmentFile = prefix.."Parchment.tga";
     local themeID = ThemeUtil:GetThemeID();
 
-    for _, piece in ipairs(self.Parchments) do
-        piece:SetTexture(parchmentFile);
+    if self.LegacyParchment then
+        self.LegacyParchment:SetTexture(parchmentFile);
+        self.LegacyParchment:Show();
+        for _, piece in ipairs(self.Parchments) do
+            piece:Hide();
+        end
+    else
+        for _, piece in ipairs(self.Parchments) do
+            piece:SetTexture(parchmentFile);
+            piece:Show();
+        end
     end
 
     local ff = self.FrontFrame;
