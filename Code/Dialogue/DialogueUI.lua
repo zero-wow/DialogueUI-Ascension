@@ -364,6 +364,11 @@ local function CreateLegacyParchment(parent)
     return controller;
 end
 
+local function GetLegacyPanelTexture()
+    local themeFolder = ThemeUtil:GetThemeID() == 2 and "Theme_Dark" or "Theme_Brown";
+    return "Interface\\AddOns\\DialogueUI-Ascension\\Art\\"..themeFolder.."\\LegacyPanel.tga";
+end
+
 function DUIDialogBaseMixin:OnLoad()
     self.OnLoad = nil;
     self:SetScript("OnLoad", nil);
@@ -451,14 +456,16 @@ function DUIDialogBaseMixin:OnLoad()
         -- Root BACKGROUND regions are known to render correctly on this client
         -- (the earlier solid diagnostic backdrop used this exact owner).
         self.LegacyParchment = CreateLegacyParchment(self);
-        self.LegacyParchment:Hide();
+        self.LegacyParchment:SetParchmentTexture(GetLegacyPanelTexture());
+        self.LegacyParchment:Show();
 
-        -- Native TGA loading has produced client Error #132 crashes on this
-        -- customized 3.3.5 build.  Keep a file-free color backdrop active
-        -- until a renderer-safe asset format is proven outside live gameplay.
+        -- Retain a file-free fallback, but keep it hidden while the isolated
+        -- 1024x1024 legacy panel is active.  The unsafe 1024x2048 Retail atlas
+        -- remains on forward-slash paths and is never submitted to this client.
         local safeBackdrop = self:CreateTexture(nil, "BACKGROUND");
         safeBackdrop:SetAllPoints(self);
         safeBackdrop:SetTexture(0.76, 0.58, 0.33, 0.98);
+        safeBackdrop:Hide();
         self.LegacySafeBackdrop = safeBackdrop;
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
@@ -669,14 +676,10 @@ function DUIDialogBaseMixin:LoadTheme()
     local themeID = ThemeUtil:GetThemeID();
 
     if self.LegacyParchment then
-        self.LegacyParchment:Hide();
+        self.LegacyParchment:SetParchmentTexture(GetLegacyPanelTexture());
+        self.LegacyParchment:Show();
         if self.LegacySafeBackdrop then
-            if themeID == 2 then
-                self.LegacySafeBackdrop:SetTexture(0.07, 0.07, 0.08, 0.98);
-            else
-                self.LegacySafeBackdrop:SetTexture(0.76, 0.58, 0.33, 0.98);
-            end
-            self.LegacySafeBackdrop:Show();
+            self.LegacySafeBackdrop:Hide();
         end
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
