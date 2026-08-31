@@ -344,10 +344,14 @@ function DUIDialogBaseMixin:OnLoad()
         -- That composition bleeds far outside its parent on the 3.3.5 texture
         -- renderer.  The atlas already contains a complete scroll panel, so
         -- use that bounded region directly on legacy clients.
-        local parchment = self:CreateTexture(nil, "BACKGROUND");
-        parchment:SetAllPoints(self);
-        parchment:SetTexCoord(128/1024, 896/1024, 120/2048, 1032/2048);
-        self.LegacyParchment = parchment;
+        local solidBackdrop = self:CreateTexture(nil, "BACKGROUND", nil, -8);
+        solidBackdrop:SetAllPoints(self);
+        solidBackdrop:SetTexture(0.76, 0.58, 0.33, 0.98);
+        self.LegacySolidBackdrop = solidBackdrop;
+
+        local backdrop = self:CreateTexture(nil, "BACKGROUND", nil, -7);
+        backdrop:SetAllPoints(self);
+        self.LegacyBackdrop = backdrop;
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end
@@ -556,9 +560,13 @@ function DUIDialogBaseMixin:LoadTheme()
     local parchmentFile = prefix.."Parchment.tga";
     local themeID = ThemeUtil:GetThemeID();
 
-    if self.LegacyParchment then
-        self.LegacyParchment:SetTexture(parchmentFile);
-        self.LegacyParchment:Show();
+    if self.LegacyBackdrop then
+        -- A single atlas region is reliable on Wrath; the Retail multi-slice
+        -- parchment is not.  Keep the opaque layer underneath for readability
+        -- if this themed art contains transparent pixels.
+        self.LegacyBackdrop:SetTexture(prefix.."GenericFrame-Tiled-Large.tga");
+        self.LegacyBackdrop:SetTexCoord(0, 1, 0, 1);
+        self.LegacyBackdrop:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end
