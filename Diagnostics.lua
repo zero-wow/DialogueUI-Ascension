@@ -68,6 +68,23 @@ local function BuildReport()
         "",
     };
 
+    local dialogue = addon.DialogueUI or _G.DUIQuestFrame;
+    local settings = addon.SettingsUI or _G.DUIDialogSettings;
+    local state = addon.GetInteractionDebugState and addon.GetInteractionDebugState() or nil;
+    tinsert(lines, "Runtime status:");
+    tinsert(lines, "  Quest frame: "..(dialogue and "present" or "missing")
+        .."; shown="..tostring(dialogue and dialogue.IsShown and dialogue:IsShown() or false)
+        .."; loading="..tostring(dialogue and dialogue.isGameLoading or false));
+    tinsert(lines, "  Settings frame: "..(settings and "present" or "missing")
+        .."; shown="..tostring(settings and settings.IsShown and settings:IsShown() or false));
+    if state then
+        tinsert(lines, "  Takeover active="..tostring(state.takeoverActive)
+            .."; external handler="..tostring(state.handledExternally));
+        tinsert(lines, "  Last interaction: "..tostring(state.lastEvent or "none")
+            .." ("..tostring(state.lastResult or "not received")..")");
+    end
+    tinsert(lines, "");
+
     if #errors == 0 then
         tinsert(lines, "No DialogueUI-Ascension Lua errors have been recorded in this account.");
     else

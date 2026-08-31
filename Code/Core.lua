@@ -27,6 +27,25 @@ local HANDLE_EVENT_EXTERNALLY = false;      --If true, Events will be handled by
 
 local EL = CreateFrame("Frame");
 local Muter = {};
+local LastInteraction = {};
+
+local function RecordInteraction(event, result)
+    LastInteraction.event = event;
+    LastInteraction.result = result;
+    LastInteraction.time = GetTime and GetTime() or 0;
+    LastInteraction.frameShown = MainFrame and MainFrame.IsShown and MainFrame:IsShown() or false;
+end
+
+function addon.GetInteractionDebugState()
+    return {
+        takeoverActive = Muter.muted == true,
+        handledExternally = HANDLE_EVENT_EXTERNALLY == true,
+        lastEvent = LastInteraction.event,
+        lastResult = LastInteraction.result,
+        lastTime = LastInteraction.time,
+        frameShown = LastInteraction.frameShown,
+    };
+end
 
 local function GetCustomGossipHandler()
 end
@@ -152,6 +171,7 @@ end
 
 function EL:OnEvent(event, ...)
     if HANDLE_EVENT_EXTERNALLY then
+        RecordInteraction(event, "handled externally");
         return
     end
 
@@ -163,6 +183,7 @@ function EL:OnEvent(event, ...)
             MainFrame:Hide();
         end
         self.lastEvent = nil;
+        RecordInteraction(event, "excluded interaction");
         return
     end
 
@@ -178,6 +199,9 @@ function EL:OnEvent(event, ...)
                 GossipDataProvider:OnInteractWithNPC();
                 MainFrame:ShowUI(event);    --Depends on the options, we may select the non-gossip one directly without openning the UI
                 CancelClosingGossipInteraction();
+                RecordInteraction(event, MainFrame:IsShown() and "shown" or "no eligible dialogue data");
+            else
+                RecordInteraction(event, "throttled duplicate");
             end
         end
 
