@@ -4,6 +4,13 @@
 local _, addon = ...
 local API = addon.API;
 
+-- Legacy layout already uses UIParent rather than WorldFrame because this
+-- client exposes renderer-space WorldFrame dimensions.  Do not let a Retail
+-- compatibility override reintroduce those values.
+if addon.IS_LEGACY_ASCENSION then
+    return;
+end
+
 
 local DEFAULT_WIDTH, DEFAULT_HEIGHT = WorldFrame:GetSize();
 

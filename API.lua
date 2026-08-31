@@ -214,6 +214,17 @@ do  -- Pixel
     API.DisableSharpening = DisableSharpening;
 
     local function GetBestViewportSize()
+        if addon.IS_LEGACY_ASCENSION then
+            -- Ascension's 3.3.5 WorldFrame can report renderer-space values
+            -- tens of thousands of units wide.  UIParent is the stable
+            -- layout coordinate system on this client.
+            local viewportWidth, viewportHeight = UIParent:GetSize();
+            if viewportWidth and viewportHeight and viewportWidth > 0 and viewportHeight > 0 then
+                return viewportWidth, viewportHeight;
+            end
+            return 1024, 768;
+        end
+
         --WorldFrame's size is unaffected by screen resolution
         --Issue caused by occasionally bugged resolution since 11.0? https://github.com/Peterodox/YUI-Dialogue/issues/104
         local viewportWidth, viewportHeight = WorldFrame:GetSize();
