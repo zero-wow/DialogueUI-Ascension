@@ -280,6 +280,66 @@ function DUIDialogBaseMixin:UpdateFrameSize()
     end
 end
 
+-- The Retail background is a tall texture atlas.  On 3.3.5 its original
+-- three-region composition cannot be clipped safely, so use a cropped copy
+-- of the *same* Retail panel and keep its scroll edges in fixed regions.
+-- This deliberately avoids the Retail-only TextureSlice API.
+local function CreateLegacyParchment(parent)
+    local frame = CreateFrame("Frame", nil, parent);
+    frame:SetAllPoints(parent);
+    frame:SetFrameLevel(parent:GetFrameLevel());
+
+    local edgeSize = 64;
+    local edgeU = 80/768;
+    local edgeV = 80/912;
+    local pieces = {};
+
+    local function CreatePiece(left, right, top, bottom)
+        local texture = frame:CreateTexture(nil, "BACKGROUND");
+        texture:SetTexCoord(left, right, top, bottom);
+        tinsert(pieces, texture);
+        return texture
+    end
+
+    local topLeft = CreatePiece(0, edgeU, 0, edgeV);
+    local top = CreatePiece(edgeU, 1 - edgeU, 0, edgeV);
+    local topRight = CreatePiece(1 - edgeU, 1, 0, edgeV);
+    local left = CreatePiece(0, edgeU, edgeV, 1 - edgeV);
+    local center = CreatePiece(edgeU, 1 - edgeU, edgeV, 1 - edgeV);
+    local right = CreatePiece(1 - edgeU, 1, edgeV, 1 - edgeV);
+    local bottomLeft = CreatePiece(0, edgeU, 1 - edgeV, 1);
+    local bottom = CreatePiece(edgeU, 1 - edgeU, 1 - edgeV, 1);
+    local bottomRight = CreatePiece(1 - edgeU, 1, 1 - edgeV, 1);
+
+    topLeft:SetPoint("TOPLEFT");
+    topLeft:SetSize(edgeSize, edgeSize);
+    topRight:SetPoint("TOPRIGHT");
+    topRight:SetSize(edgeSize, edgeSize);
+    bottomLeft:SetPoint("BOTTOMLEFT");
+    bottomLeft:SetSize(edgeSize, edgeSize);
+    bottomRight:SetPoint("BOTTOMRIGHT");
+    bottomRight:SetSize(edgeSize, edgeSize);
+
+    top:SetPoint("TOPLEFT", topLeft, "TOPRIGHT");
+    top:SetPoint("BOTTOMRIGHT", topRight, "BOTTOMLEFT");
+    bottom:SetPoint("TOPLEFT", bottomLeft, "TOPRIGHT");
+    bottom:SetPoint("BOTTOMRIGHT", bottomRight, "BOTTOMLEFT");
+    left:SetPoint("TOPLEFT", topLeft, "BOTTOMLEFT");
+    left:SetPoint("BOTTOMRIGHT", bottomLeft, "TOPRIGHT");
+    right:SetPoint("TOPLEFT", topRight, "BOTTOMRIGHT");
+    right:SetPoint("BOTTOMRIGHT", bottomRight, "TOPLEFT");
+    center:SetPoint("TOPLEFT", top, "BOTTOMLEFT");
+    center:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT");
+
+    function frame:SetParchmentTexture(file)
+        for _, texture in ipairs(pieces) do
+            texture:SetTexture(file);
+        end
+    end
+
+    return frame;
+end
+
 function DUIDialogBaseMixin:OnLoad()
     self.OnLoad = nil;
     self:SetScript("OnLoad", nil);
@@ -292,6 +352,23 @@ function DUIDialogBaseMixin:OnLoad()
         -- physical size when it inherits UIParent's custom scale.  Keep the
         -- existing layout units, but normalize the final panel scale.
         self:SetScale(0.5);
+
+        -- Let the stock Escape-key dispatcher close this non-secure panel.
+        -- This works without the Retail key-propagation API, so it cannot
+        -- capture or interfere with action-bar bindings.
+        if type(UISpecialFrames) == "table" then
+            local frameName = self:GetName();
+            local alreadyRegistered;
+            for _, name in ipairs(UISpecialFrames) do
+                if name == frameName then
+                    alreadyRegistered = true;
+                    break
+                end
+            end
+            if not alreadyRegistered then
+                tinsert(UISpecialFrames, frameName);
+            end
+        end
     end
 
     --TooltipFrame:SetParent(self);
@@ -347,18 +424,7 @@ function DUIDialogBaseMixin:OnLoad()
     end
 
     if addon.IS_LEGACY_ASCENSION then
-        -- Retail stretches three slices of a tall atlas as the frame grows.
-        -- That composition bleeds far outside its parent on the 3.3.5 texture
-        -- renderer.  The atlas already contains a complete scroll panel, so
-        -- use that bounded region directly on legacy clients.
-        local solidBackdrop = self:CreateTexture(nil, "BACKGROUND", nil, -8);
-        solidBackdrop:SetAllPoints(self);
-        solidBackdrop:SetTexture(0.76, 0.58, 0.33, 0.98);
-        self.LegacySolidBackdrop = solidBackdrop;
-
-        local backdrop = self:CreateTexture(nil, "BACKGROUND", nil, -7);
-        backdrop:SetAllPoints(self);
-        self.LegacyBackdrop = backdrop;
+        self.LegacyParchment = CreateLegacyParchment(self.BackgroundFrame);
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end
@@ -567,13 +633,9 @@ function DUIDialogBaseMixin:LoadTheme()
     local parchmentFile = prefix.."Parchment.tga";
     local themeID = ThemeUtil:GetThemeID();
 
-    if self.LegacyBackdrop then
-        -- A single atlas region is reliable on Wrath; the Retail multi-slice
-        -- parchment is not.  Keep the opaque layer underneath for readability
-        -- if this themed art contains transparent pixels.
-        self.LegacyBackdrop:SetTexture(prefix.."GenericFrame-Tiled-Large.tga");
-        self.LegacyBackdrop:SetTexCoord(0, 1, 0, 1);
-        self.LegacyBackdrop:Show();
+    if self.LegacyParchment then
+        self.LegacyParchment:SetParchmentTexture(prefix.."LegacyPanel.tga");
+        self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end
