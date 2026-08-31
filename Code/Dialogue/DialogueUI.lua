@@ -287,6 +287,13 @@ function DUIDialogBaseMixin:OnLoad()
     MainFrame = self;
     addon.DialogueUI = self;
 
+    if addon.IS_LEGACY_ASCENSION then
+        -- This client renders the dialogue root at about twice the intended
+        -- physical size when it inherits UIParent's custom scale.  Keep the
+        -- existing layout units, but normalize the final panel scale.
+        self:SetScale(0.5);
+    end
+
     --TooltipFrame:SetParent(self);
     TooltipFrame:SetShowDelay(0.25);
 
