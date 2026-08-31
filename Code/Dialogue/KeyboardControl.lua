@@ -45,7 +45,9 @@ addon.KeyboardControl = KeyboardControl;
 -- Wrath has no SetPropagateKeyboardInput, so enabling a raw OnKeyDown listener
 -- can swallow every unhandled action-bar key.  The legacy client does support
 -- override click bindings, however.  Keep those bindings on an isolated owner
--- and route only Confirm and Escape through two stable proxy buttons.
+-- and route only explicitly owned dialogue actions through stable proxy
+-- buttons.  This restores the Retail-style numbered choice keys without ever
+-- enabling a raw keyboard listener that could swallow action-bar input.
 --
 -- The secure combat state driver is important: protected bindings cannot be
 -- changed from ordinary Lua after combat lockdown starts.  Its restricted
@@ -55,6 +57,7 @@ addon.KeyboardControl = KeyboardControl;
 local LegacyBindingOwner;
 local LegacyConfirmButton;
 local LegacyExitButton;
+local LegacyOptionButtons = {};
 
 if addon.IS_LEGACY_ASCENSION
     and type(SetOverrideBindingClick) == "function"
@@ -78,6 +81,24 @@ if addon.IS_LEGACY_ASCENSION
                         self:ClearBinding(confirmKey)
                     end
                     self:ClearBinding("ESCAPE")
+                    local optionKey = self:GetAttribute("dui-option-key-1")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-2")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-3")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-4")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-5")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-6")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-7")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-8")
+                    if optionKey then self:ClearBinding(optionKey) end
+                    optionKey = self:GetAttribute("dui-option-key-9")
+                    if optionKey then self:ClearBinding(optionKey) end
                 end
             ]]);
             RegisterStateDriver(owner, "combat", "[combat] combat; nocombat");
@@ -91,6 +112,17 @@ if addon.IS_LEGACY_ASCENSION
             LegacyExitButton:Hide();
             LegacyConfirmButton:RegisterForClicks("LeftButtonUp");
             LegacyExitButton:RegisterForClicks("LeftButtonUp");
+            for i = 1, 9 do
+                local index = i;
+                local button = NativeCreateFrame(
+                    "Button",
+                    "DUIDialogLegacyOptionKeyButton"..index,
+                    UIParent
+                );
+                button:Hide();
+                button:RegisterForClicks("LeftButtonUp");
+                LegacyOptionButtons[index] = button;
+            end
         end
     end
 end
@@ -101,6 +133,8 @@ KeyboardControl.combatFrame = CreateFrame("Frame", nil, KeyboardControl, "DUISet
 function KeyboardControl:ResetKeyActions()
     if addon.IS_LEGACY_ASCENSION and self.UpdateLegacyConfirmHotkey then
         self:UpdateLegacyConfirmHotkey(nil);
+        self:UpdateLegacyOptionHotkeys();
+        self.legacyOptionCandidates = {};
     end
     self.keyActions = {};
     self.actions = {};
@@ -176,11 +210,22 @@ function KeyboardControl:SetAction(action, buttonToClick, override)
 end
 
 function KeyboardControl:SetIndexedAction(buttonIndex, buttonToClick, override)
-    if buttonIndex <= 9 then
-        -- Numbered gossip/quest-list choices remain mouse-only on 3.3.5.  The
-        -- safe legacy override is deliberately limited to the footer action;
-        -- it must never turn SPACE into an implicit travel/gossip selection.
+    if type(buttonIndex) == "number"
+        and buttonIndex >= 1
+        and buttonIndex <= 9
+        and buttonIndex % 1 == 0 then
         if addon.IS_LEGACY_ASCENSION then
+            local action = "Option"..buttonIndex;
+            self.legacyOptionCandidates = self.legacyOptionCandidates or {};
+            self.legacyOptionCandidates[buttonIndex] = buttonToClick;
+            self:SetAction(action, buttonToClick, override);
+            -- Custom bindings are disabled on legacy, so these are guaranteed
+            -- to be the visible 1-9 keys.  Return the key now so initial layout
+            -- reserves the full keycap height; the queued refresh validates
+            -- the final button type and removes it if the override fails.
+            if LegacyBindingOwner then
+                return tostring(buttonIndex)
+            end
             return nil
         end
         if buttonIndex == 1 then
@@ -212,8 +257,18 @@ local LegacyConfirmButtonTypes = {
     closeAutoAccepted = true,
 };
 
+local LegacyOptionButtonTypes = {
+    gossip = true,
+    availableQuest = true,
+    activeQuest = true,
+};
+
 local function IsLegacyQuestConfirmButton(object)
     return object and LegacyConfirmButtonTypes[object.type] == true
+end
+
+local function IsLegacyOptionButton(object)
+    return object and LegacyOptionButtonTypes[object.type] == true
 end
 
 local function IsSafeLegacyConfirmKey(key)
@@ -244,6 +299,61 @@ function KeyboardControl:UpdateLegacyConfirmHotkey(object, key)
     self.updatingLegacyHotkey = nil;
 end
 
+local function LayoutLegacyOptionButton(object, hasHotkey)
+    if object and object.Layout then
+        -- The keycap is taller than a compact gossip row.  Use the regular
+        -- option padding so its textured border is never clipped.
+        object:Layout(hasHotkey or object.type ~= "gossip");
+    end
+end
+
+function KeyboardControl:UpdateLegacyOptionHotkeys(boundOptions)
+    local previous = self.legacyOptionObjects or {};
+    local candidates = self.legacyOptionCandidates or {};
+    local current = {};
+    boundOptions = boundOptions or {};
+
+    self.updatingLegacyHotkey = true;
+    for i = 1, 9 do
+        local previousObject = previous[i];
+        local candidateObject = candidates[i];
+        local data = boundOptions[i];
+        local newObject = data and data.object;
+
+        if previousObject and previousObject ~= newObject and previousObject.SetHotkey then
+            previousObject:SetHotkey(nil);
+            LayoutLegacyOptionButton(previousObject, false);
+        end
+        if candidateObject
+            and candidateObject ~= newObject
+            and candidateObject ~= previousObject
+            and candidateObject.SetHotkey then
+            candidateObject:SetHotkey(nil);
+            LayoutLegacyOptionButton(candidateObject, false);
+        end
+
+        if newObject and newObject.SetHotkey then
+            newObject:SetHotkey(data.key);
+            LayoutLegacyOptionButton(newObject, true);
+            current[i] = newObject;
+        end
+
+        if not (self.actions and self.actions["Option"..i]) then
+            candidates[i] = nil;
+        end
+    end
+    self.updatingLegacyHotkey = nil;
+    self.legacyOptionObjects = current;
+    self.legacyOptionCandidates = candidates;
+end
+
+function KeyboardControl:HasLegacyBlockingOverlay()
+    return (Clipboard and Clipboard.IsShown and Clipboard:IsShown())
+        or (addon.SettingsUI and addon.SettingsUI:IsShown())
+        or (addon.BookUI and addon.BookUI:IsShown())
+        or (self.parent and self.parent.inputboxShown)
+end
+
 function KeyboardControl:CanUseLegacyBindings()
     local parent = self.parent;
     return LegacyBindingOwner
@@ -270,6 +380,9 @@ function KeyboardControl:ClearLegacyBindings()
     local cleared = pcall(ClearOverrideBindings, LegacyBindingOwner);
     if cleared then
         LegacyBindingOwner:SetAttribute("dui-confirm-key", nil);
+        for i = 1, 9 do
+            LegacyBindingOwner:SetAttribute("dui-option-key-"..i, nil);
+        end
     end
     return cleared
 end
@@ -282,6 +395,7 @@ function KeyboardControl:RefreshLegacyBindings()
 
     if not self:CanUseLegacyBindings() then
         self:UpdateLegacyConfirmHotkey(nil);
+        self:UpdateLegacyOptionHotkeys();
         self:ClearLegacyBindings();
         return
     end
@@ -289,14 +403,19 @@ function KeyboardControl:RefreshLegacyBindings()
     -- Rebuild from scratch so a changed/disabled Confirm key never leaves its
     -- previous override behind.
     if not self:ClearLegacyBindings() then
+        self:UpdateLegacyConfirmHotkey(nil);
+        self:UpdateLegacyOptionHotkeys();
         return
     end
 
     local anyBinding;
+    local boundKeys = {};
+    local blockingOverlay = self:HasLegacyBlockingOverlay();
     local confirmBound;
     local confirmAction = self.actions and self.actions.Confirm;
     local confirmKey = confirmAction and BindingUtil:GetActiveActionKey("Confirm");
-    if IsSafeLegacyConfirmKey(confirmKey)
+    if not blockingOverlay
+        and IsSafeLegacyConfirmKey(confirmKey)
         and confirmAction.type == "button"
         and IsLegacyQuestConfirmButton(confirmAction.obj)
         and IsVisibleAndEnabled(confirmAction.obj) then
@@ -310,6 +429,7 @@ function KeyboardControl:RefreshLegacyBindings()
         );
         if confirmBound then
             LegacyBindingOwner:SetAttribute("dui-confirm-key", confirmKey);
+            boundKeys[confirmKey] = true;
         end
         anyBinding = confirmBound or anyBinding;
     end
@@ -318,6 +438,38 @@ function KeyboardControl:RefreshLegacyBindings()
         confirmAction and confirmAction.obj or nil,
         confirmBound and confirmKey or nil
     );
+
+    local boundOptions = {};
+    for i = 1, 9 do
+        local actionName = "Option"..i;
+        local optionAction = self.actions and self.actions[actionName];
+        local optionObject = optionAction and optionAction.obj;
+        local optionKey = optionAction and BindingUtil:GetActiveActionKey(actionName);
+
+        if not blockingOverlay
+            and IsSafeLegacyConfirmKey(optionKey)
+            and not boundKeys[optionKey]
+            and optionAction.type == "button"
+            and IsLegacyOptionButton(optionObject)
+            and IsVisibleAndEnabled(optionObject)
+            and LegacyOptionButtons[i] then
+            local optionBound = pcall(
+                SetOverrideBindingClick,
+                LegacyBindingOwner,
+                true,
+                optionKey,
+                LegacyOptionButtons[i]:GetName(),
+                "LeftButton"
+            );
+            if optionBound then
+                LegacyBindingOwner:SetAttribute("dui-option-key-"..i, optionKey);
+                boundOptions[i] = {object = optionObject, key = optionKey};
+                boundKeys[optionKey] = true;
+                anyBinding = true;
+            end
+        end
+    end
+    self:UpdateLegacyOptionHotkeys(boundOptions);
 
     local escapeBound = pcall(
         SetOverrideBindingClick,
@@ -348,9 +500,39 @@ end
 function KeyboardControl:SuspendLegacyBindings()
     self.legacyBindingSuspended = true;
     self:UpdateLegacyConfirmHotkey(nil);
+    self:UpdateLegacyOptionHotkeys();
     self.keyActions = {};
     self.actions = {};
     self:ClearLegacyBindings();
+end
+
+
+function KeyboardControl:ExecuteLegacyOption(index)
+    if not self:CanUseLegacyBindings() then
+        return
+    end
+    if self:HasLegacyBlockingOverlay() then
+        return
+    end
+
+    local action = self.actions and self.actions["Option"..index];
+    local object = action and action.obj;
+    if action
+        and action.type == "button"
+        and IsLegacyOptionButton(object)
+        and IsVisibleAndEnabled(object) then
+        -- Consume the whole numbered set before selecting.  This prevents a
+        -- held/repeated key from choosing again while the server is replacing
+        -- the gossip page.  The next page rebuild registers its own choices.
+        for i = 1, 9 do
+            self.actions["Option"..i] = nil;
+        end
+        self:RefreshLegacyBindings();
+        local noFeedback = object:OnClick("GamePad");
+        if (not noFeedback) and object.PlayKeyFeedback then
+            object:PlayKeyFeedback();
+        end
+    end
 end
 
 
@@ -361,10 +543,7 @@ function KeyboardControl:ExecuteLegacyConfirm()
 
     -- Do not complete an obscured quest while the user is interacting with a
     -- modal/editing surface layered over the dialogue.
-    if (Clipboard and Clipboard.IsShown and Clipboard:IsShown())
-        or (addon.SettingsUI and addon.SettingsUI:IsShown())
-        or (addon.BookUI and addon.BookUI:IsShown())
-        or (self.parent and self.parent.inputboxShown) then
+    if self:HasLegacyBlockingOverlay() then
         return
     end
 
@@ -418,6 +597,15 @@ if LegacyConfirmButton and LegacyExitButton then
     LegacyExitButton:SetScript("OnClick", function()
         KeyboardControl:ExecuteLegacyExit();
     end);
+    for i = 1, 9 do
+        local index = i;
+        local button = LegacyOptionButtons[index];
+        if button then
+            button:SetScript("OnClick", function()
+                KeyboardControl:ExecuteLegacyOption(index);
+            end);
+        end
+    end
 end
 
 function KeyboardControl:OnEvent(event, ...)
@@ -428,6 +616,7 @@ function KeyboardControl:OnEvent(event, ...)
             -- insecure bookkeeping here; protected APIs are forbidden now.
             self.legacyBindingActive = nil;
             self:UpdateLegacyConfirmHotkey(nil);
+            self:UpdateLegacyOptionHotkeys();
             return
         end
         self:UpdateParentForCombat(true);
@@ -835,6 +1024,24 @@ do  --Settings
 
     if addon.IS_LEGACY_ASCENSION then
         addon.CallbackRegistry:Register("CustomBindingChanged", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("SettingsUI.Show", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("SettingsUI.Hide", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("Clipboard.Show", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("Clipboard.Hide", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("BookUI.Show", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("BookUI.Hide", function()
             KeyboardControl:RefreshLegacyBindings();
         end);
         addon.CallbackRegistry:Register("DialogueUI.LegacyRelease", function()

@@ -98,8 +98,14 @@ local function SetCombat(state)
         local snippet = owner:GetAttribute("_onstate-combat")
         Assert(type(snippet) == "string" and string.find(snippet, "ClearBinding", 1, true),
             "combat state driver does not clear bindings")
+        Assert(string.find(snippet, "dui-option-key-9", 1, true),
+            "combat state driver does not cover every numbered option")
         local confirmKey = owner:GetAttribute("dui-confirm-key")
         if confirmKey then owner:ClearBinding(confirmKey) end
+        for i = 1, 9 do
+            local optionKey = owner:GetAttribute("dui-option-key-"..i)
+            if optionKey then owner:ClearBinding(optionKey) end
+        end
         owner:ClearBinding("ESCAPE")
     end
 end
@@ -136,12 +142,20 @@ local activeConfirmKey = "SPACE"
 addon.BindingUtil = {
     GetActiveActionKey = function(_, action)
         if action == "Confirm" then return activeConfirmKey end
+        local index = string.match(action or "", "^Option([1-9])$")
+        if index then return index end
     end,
     GetActiveKeyAction = function(_, key)
         if key == activeConfirmKey then return "Confirm" end
     end,
     LoadBindings = function() end,
 }
+
+local function TriggerCallbacks(event)
+    for _, callback in ipairs(callbacks[event] or {}) do
+        callback()
+    end
+end
 
 local chunk = assert(loadfile(addonRoot.."\\Code\\Dialogue\\KeyboardControl.lua"))
 chunk(addonName, addon)
@@ -176,6 +190,63 @@ Assert(owner.bindings.ESCAPE, "Escape key was not acquired")
 Assert(confirm.hotkey == "SPACE", "active Confirm key was not shown on the footer button")
 Assert(not enabledKeyboard, "legacy path enabled raw keyboard capture")
 
+local option1 = NewFrame("Button", nil, parent)
+option1.clicks = 0
+function option1:OnClick(button)
+    Assert(button == "GamePad", "numbered proxy did not preserve keyboard click semantics")
+    self.clicks = self.clicks + 1
+end
+function option1:SetHotkey(key) self.hotkey = key end
+function option1:Layout() self.layoutCalls = (self.layoutCalls or 0) + 1 end
+
+local option2 = NewFrame("Button", nil, parent)
+option2.clicks = 0
+function option2:OnClick(button)
+    Assert(button == "GamePad", "second numbered proxy used wrong click semantics")
+    self.clicks = self.clicks + 1
+end
+function option2:SetHotkey(key) self.hotkey = key end
+function option2:Layout() self.layoutCalls = (self.layoutCalls or 0) + 1 end
+
+-- SetIndexedAction runs before DialogueUI assigns each pooled button's final
+-- type.  The deferred refresh must validate that final type.
+local initialOptionKey1 = control:SetIndexedAction(1, option1)
+local initialOptionKey2 = control:SetIndexedAction(2, option2)
+Assert(initialOptionKey1 == "1", "first numbered keycap was not reserved")
+Assert(initialOptionKey2 == "2", "second numbered keycap was not reserved")
+option1.type = "gossip"
+option2.type = "availableQuest"
+option1:SetHotkey(initialOptionKey1)
+option2:SetHotkey(initialOptionKey2)
+FlushTimers()
+Assert(owner.bindings["1"] and owner.bindings["2"], "numbered choices were not acquired")
+Assert(option1.hotkey == "1" and option2.hotkey == "2", "numbered keycaps were not shown")
+Assert((option1.layoutCalls or 0) > 0 and (option2.layoutCalls or 0) > 0,
+    "numbered keycaps did not relayout their option rows")
+
+local optionProxy1 = frames[owner.bindings["1"].buttonName]
+local optionProxy2 = frames[owner.bindings["2"].buttonName]
+optionProxy2.scripts.OnClick(optionProxy2, "LeftButton")
+Assert(option1.clicks == 0 and option2.clicks == 1,
+    "numbered option proxy indices were aliased")
+Assert(not owner.bindings["1"] and not owner.bindings["2"]
+    and option1.hotkey == nil and option2.hotkey == nil,
+    "a selected option left repeatable numbered bindings active")
+optionProxy2.scripts.OnClick(optionProxy2, "LeftButton")
+Assert(option2.clicks == 1, "a repeated numbered key selected the same page twice")
+
+control:SetIndexedAction(1, option1)
+control:SetIndexedAction(2, option2)
+FlushTimers()
+optionProxy1 = frames[owner.bindings["1"].buttonName]
+optionProxy1.scripts.OnClick(optionProxy1, "LeftButton")
+Assert(option1.clicks == 1 and option2.clicks == 1,
+    "first numbered option invoked the wrong choice")
+
+control:SetIndexedAction(1, option1)
+control:SetIndexedAction(2, option2)
+FlushTimers()
+
 local confirmProxy = frames[owner.bindings.SPACE.buttonName]
 confirmProxy.scripts.OnClick(confirmProxy, "LeftButton")
 Assert(confirm.clicks == 1, "Confirm proxy did not invoke the active action")
@@ -192,6 +263,65 @@ control:QueueLegacyBindingRefresh()
 FlushTimers()
 Assert(owner.bindings.SPACE, "re-enabled Confirm action did not reacquire its override")
 Assert(confirm.hotkey == "SPACE", "re-enabled Confirm action did not restore its visual hotkey")
+
+option2.enabled = false
+control:QueueLegacyBindingRefresh()
+FlushTimers()
+Assert(owner.bindings["1"] and not owner.bindings["2"],
+    "disabled numbered choice retained its override")
+Assert(option1.hotkey == "1" and option2.hotkey == nil,
+    "disabled numbered choice retained its keycap")
+option2.enabled = true
+control:QueueLegacyBindingRefresh()
+FlushTimers()
+Assert(owner.bindings["2"] and option2.hotkey == "2",
+    "re-enabled numbered choice did not restore its keycap")
+
+local unsafe = NewFrame("Button", nil, parent)
+unsafe.type = "complete"
+function unsafe:OnClick() error("unsafe indexed button must not execute") end
+function unsafe:SetHotkey(key) self.hotkey = key end
+function unsafe:Layout() self.layoutCalls = (self.layoutCalls or 0) + 1 end
+Assert(control:SetIndexedAction(0, unsafe) == nil, "index zero was accepted")
+Assert(control:SetIndexedAction(-1, unsafe) == nil, "negative index was accepted")
+Assert(control:SetIndexedAction(1.5, unsafe) == nil, "fractional index was accepted")
+Assert(control:SetIndexedAction("3", unsafe) == nil, "string index was accepted")
+Assert(control:SetIndexedAction(10, unsafe) == nil, "choice ten was accepted")
+local unsafeKey = control:SetIndexedAction(3, unsafe)
+unsafe:SetHotkey(unsafeKey)
+FlushTimers()
+Assert(not owner.bindings["3"] and unsafe.hotkey == nil,
+    "unsafe option type acquired a numbered binding")
+
+addon.SettingsUI:Show()
+TriggerCallbacks("SettingsUI.Show")
+Assert(owner.bindings.ESCAPE and not owner.bindings.SPACE
+    and not owner.bindings["1"] and not owner.bindings["2"],
+    "settings overlay did not suspend Confirm and numbered choices")
+Assert(confirm.hotkey == nil and option1.hotkey == nil and option2.hotkey == nil,
+    "settings overlay retained unavailable keycaps")
+addon.SettingsUI:Hide()
+TriggerCallbacks("SettingsUI.Hide")
+Assert(owner.bindings.SPACE and owner.bindings["1"] and owner.bindings["2"],
+    "closing settings did not restore scoped dialogue bindings")
+
+addon.Clipboard:Show()
+TriggerCallbacks("Clipboard.Show")
+Assert(owner.bindings.ESCAPE and not owner.bindings["1"],
+    "clipboard overlay did not suspend numbered choices")
+addon.Clipboard:Hide()
+TriggerCallbacks("Clipboard.Hide")
+Assert(owner.bindings["1"] and owner.bindings["2"],
+    "closing clipboard did not restore numbered choices")
+
+parent.inputboxShown = true
+control:RefreshLegacyBindings()
+Assert(owner.bindings.ESCAPE and not owner.bindings.SPACE and not owner.bindings["1"],
+    "gossip input box did not suspend unsafe dialogue actions")
+parent.inputboxShown = nil
+control:RefreshLegacyBindings()
+Assert(owner.bindings.SPACE and owner.bindings["1"] and owner.bindings["2"],
+    "closing gossip input box did not restore dialogue actions")
 
 local gossip = NewFrame("Button", nil, parent)
 gossip.type = "gossip"
@@ -211,6 +341,21 @@ Assert(not owner.bindings.SPACE and owner.bindings.G,
     "changed Confirm key left its previous override behind")
 Assert(confirm.hotkey == "G", "changed Confirm key did not update the footer label")
 
+control:SetIndexedAction(1, option1)
+control:SetIndexedAction(2, option2)
+FlushTimers()
+Assert(owner.bindings.G and owner.bindings["1"] and owner.bindings["2"],
+    "Confirm, Escape, and numbered choices did not coexist")
+
+activeConfirmKey = "1"
+control:RefreshLegacyBindings()
+Assert(owner.bindings["1"] and confirm.hotkey == "1",
+    "numeric Confirm key did not keep priority")
+Assert(option1.hotkey == nil and owner.bindings["2"] and option2.hotkey == "2",
+    "numbered choice stole a conflicting Confirm key")
+activeConfirmKey = "G"
+control:RefreshLegacyBindings()
+
 activeConfirmKey = "BUTTON1"
 control:RefreshLegacyBindings()
 Assert(not owner.bindings.BUTTON1 and owner.bindings.ESCAPE,
@@ -223,11 +368,16 @@ SetCombat(true)
 control:OnEvent("PLAYER_REGEN_DISABLED")
 Assert(next(owner.bindings) == nil, "combat state did not release dialogue bindings")
 Assert(confirm.hotkey == nil, "combat entry retained the unavailable Confirm label")
+Assert(option1.hotkey == nil and option2.hotkey == nil,
+    "combat entry retained numbered keycaps")
 
 SetCombat(false)
 control:OnEvent("PLAYER_REGEN_ENABLED")
 Assert(owner.bindings.G and owner.bindings.ESCAPE, "bindings were not safely restored after combat")
 Assert(confirm.hotkey == "G", "combat exit did not restore the Confirm label")
+Assert(owner.bindings["1"] and owner.bindings["2"]
+    and option1.hotkey == "1" and option2.hotkey == "2",
+    "combat exit did not restore numbered choices")
 
 local acknowledge = NewFrame("Button", nil, parent)
 acknowledge.type = "closeAutoAccepted"
@@ -252,6 +402,8 @@ Assert(parent.hideCalls == 1 and parent.lastCancelPopupFirst and parent.lastFrom
 
 control:OnEvent("QUEST_FINISHED")
 Assert(next(owner.bindings) == nil, "quest finish did not release every dialogue binding")
+Assert(option1.hotkey == nil and option2.hotkey == nil,
+    "quest finish retained numbered keycaps")
 
 control:SetAction("Confirm", confirm, true)
 FlushTimers()

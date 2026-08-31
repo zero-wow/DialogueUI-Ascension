@@ -638,6 +638,7 @@ local legacyDatabase = {
     InputDevice = 4,
     CameraMovement = 2,
     HideUI = true,
+    UseCustomBindings = true,
 }
 DialogueUI_DB = legacyDatabase
 DialogueUI_Saves = nil
@@ -670,13 +671,18 @@ Assert(DialogueUI_DB.RightClickToCloseUI == true, "wrong-type boolean was not re
 Assert(DialogueUI_DB.InputDevice == 1, "legacy database retained an unsupported input device")
 Assert(DialogueUI_DB.CameraMovement == 0, "legacy database retained camera movement without exact zoom restoration")
 Assert(DialogueUI_DB.HideUI == false, "legacy database retained protected UIParent hiding")
+Assert(DialogueUI_DB.UseCustomBindings == false,
+    "legacy database retained hidden arbitrary key overrides")
 
 addon.SetDBValue("InputDevice", 4, true)
 addon.SetDBValue("CameraMovement", 2, true)
 addon.SetDBValue("HideUI", true, true)
+addon.SetDBValue("UseCustomBindings", true, true)
 Assert(DialogueUI_DB.InputDevice == 1, "SetDBValue enabled an unsupported input device")
 Assert(DialogueUI_DB.CameraMovement == 0, "SetDBValue enabled camera movement without exact zoom restoration")
 Assert(DialogueUI_DB.HideUI == false, "SetDBValue enabled protected UIParent hiding")
+Assert(DialogueUI_DB.UseCustomBindings == false,
+    "SetDBValue enabled hidden arbitrary key overrides")
 addon.SetDBValue("Theme", 2, true)
 Assert(DialogueUI_DB.Theme == 2, "SetDBValue rejected an ordinary setting")
 addon.SetDBValue("FrameSize", 5, true)

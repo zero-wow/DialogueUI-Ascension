@@ -388,13 +388,17 @@ function DUIDialogOptionButtonMixin:SetGossip(data, hotkey)
     self.type = "gossip";
     self.onClickFunc = OnClickFunc_SelectOption;
 
-    self:SetHotkey(false);  --Put Key in name (1. Options 1)
-    if hotkey then
-        name = hotkey..". "..name;
+    if addon.IS_LEGACY_ASCENSION then
+        self:SetHotkey(hotkey);
+    else
+        self:SetHotkey(false);  --Put Key in name (1. Options 1)
+        if hotkey then
+            name = hotkey..". "..name;
+        end
     end
 
     self:RemoveQuestTypeText();
-    self:SetButtonText(name, false);
+    self:SetButtonText(name, addon.IS_LEGACY_ASCENSION and hotkey ~= nil);
     self:SetButtonArt(0);
     self:Enable();
 
@@ -413,13 +417,17 @@ function DUIDialogOptionButtonMixin:SetGossipHint(data, hotkey)
     self.hintText = data.name;
     self.onClickFunc = OnClickFunc_SelectHint;
 
-    self:SetHotkey(false);  --Put Key in name (1. Options 1)
-    if hotkey then
-        name = hotkey..". "..name;
+    if addon.IS_LEGACY_ASCENSION then
+        self:SetHotkey(hotkey);
+    else
+        self:SetHotkey(false);  --Put Key in name (1. Options 1)
+        if hotkey then
+            name = hotkey..". "..name;
+        end
     end
 
     self:RemoveQuestTypeText();
-    self:SetButtonText(name, false);
+    self:SetButtonText(name, addon.IS_LEGACY_ASCENSION and hotkey ~= nil);
     self:SetButtonArt(0);
     self:Enable();
     self.shouldShowUIOnClick = false;

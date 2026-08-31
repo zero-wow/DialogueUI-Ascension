@@ -256,6 +256,7 @@ end
 function Clipboard:OnShow()
     self:RegisterEvent("GLOBAL_MOUSE_DOWN");
     self:RegisterEvent("GLOBAL_MOUSE_UP");
+    addon.CallbackRegistry:Trigger("Clipboard.Show");
 end
 Clipboard:SetScript("OnShow", Clipboard.OnShow);
 
@@ -286,6 +287,7 @@ function Clipboard:OnHide()
     self.EditBox:SetText("");
     self.EditBox:ClearHighlightText();
     self:StopCursorScrolling();
+    addon.CallbackRegistry:Trigger("Clipboard.Hide");
 end
 Clipboard:SetScript("OnHide", Clipboard.OnHide);
 

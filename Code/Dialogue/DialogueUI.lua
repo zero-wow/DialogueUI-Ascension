@@ -2366,13 +2366,20 @@ function DUIDialogBaseMixin:HandleGossipEnterCode(gossipID)
     self.InputBox:SetFocus();
     FadeFrame(self.ContentFrame, 0.15, 0.25);
     FadeFrame(self.FrontFrame, 0.15, 0.25);
+    if addon.IS_LEGACY_ASCENSION then
+        KeyboardControl:QueueLegacyBindingRefresh();
+    end
 end
 
 function DUIDialogBaseMixin:HideInputBox()
     if self.inputboxShown then
+        self.inputboxShown = nil;
         self.InputBox:Hide();
         FadeFrame(self.ContentFrame, 0.15, 1);
         FadeFrame(self.FrontFrame, 0.15, 1);
+        if addon.IS_LEGACY_ASCENSION then
+            KeyboardControl:QueueLegacyBindingRefresh();
+        end
     end
 end
 

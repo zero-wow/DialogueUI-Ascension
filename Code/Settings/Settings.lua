@@ -951,9 +951,9 @@ local Schematic = { --Scheme
 
 if addon.IS_LEGACY_ASCENSION then
     -- Reflect actual build-12340 capabilities in the settings UI. The scoped
-    -- footer Confirm override is supported, but raw/custom key capture,
-    -- GamePad scripts, unhandled-key propagation, and restorable camera zoom
-    -- are not.
+    -- footer Confirm and numbered-choice overrides are supported, but raw
+    -- custom-key capture, GamePad scripts, unhandled-key propagation, and
+    -- restorable camera zoom are not.
     local unavailableKeyboardOptions = {
         UseCustomBindings = true,
         CycleRewardHotkeyEnabled = true,

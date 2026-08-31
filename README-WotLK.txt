@@ -1,4 +1,4 @@
-Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r26
+Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r27
 
 Target
   WoW 3.3.5a, build 12340, Interface 30300.
@@ -18,7 +18,10 @@ Legacy safety
   actions, and unsafe raw keyboard/gamepad capture on legacy clients. The
   configured Confirm key is instead scoped to a visible, enabled Accept,
   Continue, or Complete Quest button and is released on page changes, hiding,
-  combat, and world transitions. Escape closes the active Dialogue UI panel.
+  combat, and world transitions. Visible gossip and quest-list choices 1-9 use
+  temporary numbered bindings with the original themed keycap treatment; the
+  full numbered set is consumed immediately after a choice to prevent repeats
+  while the server changes pages. Escape closes the active Dialogue UI panel.
   These safeguards keep the addon out of protected action state and prevent it
   from swallowing ability keys used by action bars such as ElvUI.
 

@@ -183,6 +183,11 @@ local function SetDBValue(dbKey, value, userInput)
             value = 0;
         elseif dbKey == "HideUI" then
             value = false;
+        elseif dbKey == "UseCustomBindings" then
+            -- The legacy settings UI intentionally hides arbitrary key
+            -- capture.  Do not let imported Retail bindings invisibly mask an
+            -- action-bar key; numbered dialogue choices use fixed 1-9 keys.
+            value = false;
         end
     end
     DB[dbKey] = value;
@@ -311,6 +316,7 @@ local function LoadDatabase()
         DB.InputDevice = 1;
         DB.CameraMovement = 0;
         DB.HideUI = false;
+        DB.UseCustomBindings = false;
     end
 
     for dbKey, defaultValue in pairs(DefaultValues) do
