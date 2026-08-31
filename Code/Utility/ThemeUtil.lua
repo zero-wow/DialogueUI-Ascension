@@ -8,6 +8,7 @@ local gsub = string.gsub;
 local unpack = unpack;
 
 local TEXTURE_PATH;
+local LEGACY_TEXTURE_PATH;
 local THEME_ID;
 
 
@@ -95,11 +96,13 @@ function ThemeUtil:SetThemeByID(themeID)
     if themeID == 2 then    --Dark
         colorIndex = 2;
         TEXTURE_PATH = "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Dark/";
+        LEGACY_TEXTURE_PATH = "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Dark\\";
         AdjustTextColor = AdjustBlueText;
     else
         themeID = 1;
         colorIndex = 1;
         TEXTURE_PATH = "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Brown/";
+        LEGACY_TEXTURE_PATH = "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Brown\\";
         AdjustTextColor = AdjustRedText;
     end
 
@@ -138,7 +141,12 @@ end
 
 function ThemeUtil:GetTextureFile(fileName)
     if fileName then
-        return TEXTURE_PATH..fileName;
+        -- This 3.3.5 client reliably loads addon TGAs through legacy-style
+        -- backslash paths.  Keep GetTexturePath() untouched because Retail's
+        -- tall parchment atlas is not safe to expose to the legacy renderer;
+        -- individual, verified power-of-two assets use this method instead.
+        local texturePath = addon.IS_LEGACY_ASCENSION and LEGACY_TEXTURE_PATH or TEXTURE_PATH;
+        return texturePath..fileName;
     end
 end
 

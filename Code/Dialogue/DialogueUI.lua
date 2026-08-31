@@ -712,8 +712,8 @@ function DUIDialogBaseMixin:LoadTheme()
     self.WarbandCompleteAlert.Icon:SetTexture(parchmentFile);
     self.WarbandCompleteAlert.Icon:SetTexCoord(0.71875, 0.8125, 0.56640625, 0.61328125);
 
-    self.RewardSelection.FrontTexture:SetTexture(prefix.."RewardChoice-Highlight.tga");
-    self.RewardSelection.BackTexture:SetTexture(prefix.."RewardChoice-Highlight-Back.tga");
+    self.RewardSelection.FrontTexture:SetTexture(ThemeUtil:GetTextureFile("RewardChoice-Highlight.tga"));
+    self.RewardSelection.BackTexture:SetTexture(ThemeUtil:GetTextureFile("RewardChoice-Highlight-Back.tga"));
     self.RewardSelection.BackTexture:SetVertexColor(0.65, 0, 0);
 
     if self.CopyTextButton then

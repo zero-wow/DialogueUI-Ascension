@@ -2290,7 +2290,17 @@ end
 
 
 function DialogueUI_ShowSettingsFrame()
-    MainFrame:ToggleUI();
+    local frame = MainFrame or addon.SettingsUI or _G.DUIDialogSettings;
+    if frame and frame.ToggleUI then
+        MainFrame = frame;
+        frame:ToggleUI();
+    end
+end
+
+SLASH_DIALOGUEUISETTINGS1 = "/dui";
+SLASH_DIALOGUEUISETTINGS2 = "/dialogueui";
+SlashCmdList.DIALOGUEUISETTINGS = function()
+    DialogueUI_ShowSettingsFrame();
 end
 
 

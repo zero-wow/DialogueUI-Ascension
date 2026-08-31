@@ -860,7 +860,6 @@ function DUIDialogOptionButtonMixin:SetButtonArt(id)
         return
     end
 
-    local prefix = ThemeUtil:GetTexturePath();
     local bgName
 
     if id == 0 then         --Gossip
@@ -868,19 +867,19 @@ function DUIDialogOptionButtonMixin:SetButtonArt(id)
         self.Name:SetFontObject("DUIFont_Quest_Gossip");
     elseif id == 1 then     --Red
         bgName = "OptionBackground-Common.tga";
-        self.Background:SetTexture(prefix..bgName);
+        self.Background:SetTexture(ThemeUtil:GetTextureFile(bgName));
         self.Name:SetFontObject("DUIFont_Quest_Quest");
     elseif id == 2 then     --Daily
         bgName = "OptionBackground-Blue.tga";
-        self.Background:SetTexture(prefix..bgName);
+        self.Background:SetTexture(ThemeUtil:GetTextureFile(bgName));
         self.Name:SetFontObject("DUIFont_Quest_Quest");
     elseif id == 3 then     --Goodbye/Declick Button, Unfinished Quest
         bgName = "OptionBackground-Hollow.tga"; --Grey
-        self.Background:SetTexture(prefix..bgName);
+        self.Background:SetTexture(ThemeUtil:GetTextureFile(bgName));
         self.Name:SetFontObject("DUIFont_Quest_Disabled");
     elseif id == 4 then     --Exit / Incomplete Quest
         bgName = "OptionBackground-Grey.tga";
-        self.Background:SetTexture(prefix..bgName);
+        self.Background:SetTexture(ThemeUtil:GetTextureFile(bgName));
         self.Name:SetFontObject("DUIFont_Quest_Quest");
     end
 end
@@ -1401,7 +1400,6 @@ function DUIDialogItemButtonMixin:SetBackgroundTexture(id)
         return
     end
 
-    local prefix = ThemeUtil:GetTexturePath();
     local borderFile, bgFile, fontObject;
 
     if id == 1 then
@@ -1421,8 +1419,8 @@ function DUIDialogItemButtonMixin:SetBackgroundTexture(id)
         fontObject = "DUIFont_ItemSelect";
     end
 
-    self.ItemBorder:SetTexture(prefix..borderFile);
-    self.Background:SetTexture(prefix..bgFile);
+    self.ItemBorder:SetTexture(ThemeUtil:GetTextureFile(borderFile));
+    self.Background:SetTexture(ThemeUtil:GetTextureFile(bgFile));
     self.Name:SetFontObject(fontObject);
 end
 
