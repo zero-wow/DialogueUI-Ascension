@@ -475,6 +475,10 @@ function DropdownMenuMixin:SetPage(page, fromReload)
 end
 
 function DropdownMenuMixin:OnMouseWheel(delta)
+    if addon.SettingsUI and addon.SettingsUI.AdjustLegacyFrameScale
+        and addon.SettingsUI:AdjustLegacyFrameScale(delta) then
+        return
+    end
     if delta > 0 then
         if self.page > 1 then
             self:SetPage(self.page - 1);

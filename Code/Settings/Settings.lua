@@ -12,6 +12,7 @@ local InCombatLockdown = InCombatLockdown;
 local SetOverrideBindingClick = SetOverrideBindingClick;
 local ClearOverrideBindings = ClearOverrideBindings;
 local CreateFrame = addon.Legacy.CreateFrame or CreateFrame;
+local IsControlKeyDown = IsControlKeyDown;
 local type = type;
 
 local GetDBValue = addon.GetDBValue;
@@ -39,6 +40,8 @@ local HOTKEYFRAME_VALUETEXT_GAP = 4;
 local TAB_BUTTON_GAP = 4;
 
 local DISABLED_TEXTURE_ALPHA = 0.2;
+local LEGACY_BASE_SCALE = 0.5;
+local LEGACY_SCALE_STEP = 0.05;
 
 local PREVIEW_PATH = addon.IS_LEGACY_ASCENSION
     and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\PreviewPicture\\"
@@ -78,7 +81,10 @@ function DUIDialogSettingsMixin:OnLoad()
     if addon.IS_LEGACY_ASCENSION then
         -- Match the physical scale used by the legacy dialogue frame.  This
         -- client otherwise renders the Retail layout at roughly twice size.
-        self:SetScale(0.5);
+        self:SetScale(LEGACY_BASE_SCALE);
+        if self.EnableMouseWheel then
+            self:EnableMouseWheel(true);
+        end
     end
 
     addon.PixelUtil:AddPixelPerfectObject(self);
@@ -181,8 +187,38 @@ function DUIDialogSettingsMixin:OnGamePadButtonDown(button)
 end
 
 function DUIDialogSettingsMixin:OnMouseWheel(delta)
-
+    if self:AdjustLegacyFrameScale(delta) then
+        return
+    end
+    if self.ScrollFrame and self.ScrollFrame.OnMouseWheel then
+        self.ScrollFrame:OnMouseWheel(delta);
+    end
 end
+
+function DUIDialogSettingsMixin:AdjustLegacyFrameScale(delta)
+    if not addon.IS_LEGACY_ASCENSION or not IsControlKeyDown() then
+        return false
+    end
+
+    local current = tonumber(GetDBValue("SettingsFrameScale")) or 1;
+    local direction = delta > 0 and 1 or -1;
+    SetDBValue("SettingsFrameScale", current + direction * LEGACY_SCALE_STEP, true);
+    return true
+end
+
+local function Settings_SettingsFrameScale(dbValue, userInput)
+    if not addon.IS_LEGACY_ASCENSION or not MainFrame then return end;
+    dbValue = tonumber(dbValue) or 1;
+    MainFrame:SetScale(LEGACY_BASE_SCALE * dbValue);
+    MainFrame:UpdatePixel();
+    if MainFrame:IsShown() then
+        MainFrame:MoveToBestPosition();
+    end
+    if userInput and DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("Dialogue UI settings scale: "..math.floor(dbValue * 100 + 0.5).."%");
+    end
+end
+CallbackRegistry:Register("SettingChanged.SettingsFrameScale", Settings_SettingsFrameScale);
 
 function DUIDialogSettingsMixin:LoadTheme()
     if self.Init then return end;
@@ -1054,6 +1090,9 @@ function ScrollFrameMixin:ScrollToBottom()
 end
 
 function ScrollFrameMixin:OnMouseWheel(delta)
+    if MainFrame and MainFrame:AdjustLegacyFrameScale(delta) then
+        return
+    end
     if delta > 0 then
         self:ScrollBy(-OPTIONBUTTON_HEIGHT);
     else

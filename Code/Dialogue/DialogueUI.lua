@@ -17,6 +17,8 @@ local FriendshipBar = addon.FriendshipBar;
 local PlaySound = addon.PlaySound;
 local IsAutoSelectOption = addon.IsAutoSelectOption;
 local GetDBBool = addon.GetDBBool;
+local GetDBValue = addon.GetDBValue;
+local SetDBValue = addon.SetDBValue;
 local SwipeEmulator = addon.SwipeEmulator;
 local GossipDataProvider = addon.GossipDataProvider;
 local HeaderWidgetManger = addon.HeaderWidgetManger;
@@ -30,6 +32,8 @@ local IsPlayingCutscene = API.IsPlayingCutscene;
 local FRAME_SIZE_MULTIPLIER = 1.1;  --Default: 1.1
 local SCROLLDOWN_THEN_ACCEPT_QUEST = false;
 local INPUT_DEVICE_GAME_PAD = false;
+local LEGACY_BASE_SCALE = 0.5;
+local LEGACY_SCALE_STEP = 0.05;
 --local ALWAYS_GOSSIP = false;
 --local SHOW_NPC_NAME = false;
 --local MARK_HIGHEST_SELL_PRICE = false;
@@ -380,7 +384,10 @@ function DUIDialogBaseMixin:OnLoad()
         -- This client renders the dialogue root at about twice the intended
         -- physical size when it inherits UIParent's custom scale.  Keep the
         -- existing layout units, but normalize the final panel scale.
-        self:SetScale(0.5);
+        self:SetScale(LEGACY_BASE_SCALE);
+        if self.EnableMouseWheel then
+            self:EnableMouseWheel(true);
+        end
 
         -- Let the stock Escape-key dispatcher close this non-secure panel.
         -- This works without the Retail key-propagation API, so it cannot
@@ -501,11 +508,19 @@ function DUIDialogBaseMixin:OnLoad()
 
     --ScrollFrame
     addon.InitEasyScrollFrame(self.ScrollFrame, self.FrontFrame.HeaderDivider, self.FrontFrame.FooterDivider)
+    if self.ScrollFrame.EnableMouseWheel then
+        self.ScrollFrame:EnableMouseWheel(true);
+    end
     self:ResetScroll();
 
     local offsetPerScroll = 96;
 
     local function ScrollFrame_OnMouseWheel(f, delta)
+        if self:AdjustLegacyFrameScale(delta) then
+            SwipeEmulator:StopWatching();
+            return
+        end
+
         if delta > 0 then
             f:ScrollBy(-offsetPerScroll);
         else
@@ -2744,6 +2759,17 @@ function DUIDialogBaseMixin:OnMouseUp(button)
     end
 end
 
+function DUIDialogBaseMixin:AdjustLegacyFrameScale(delta)
+    if not addon.IS_LEGACY_ASCENSION or not IsControlKeyDown() then
+        return false
+    end
+
+    local current = tonumber(GetDBValue("QuestFrameScale")) or 1;
+    local direction = delta > 0 and 1 or -1;
+    SetDBValue("QuestFrameScale", current + direction * LEGACY_SCALE_STEP, true);
+    return true
+end
+
 function DUIDialogBaseMixin:OnMouseWheel(delta)
     self.ScrollFrame:OnMouseWheel(delta);
 end
@@ -3791,6 +3817,16 @@ do  --Generic Settings Registry
         end
     end
     CallbackRegistry:Register("SettingChanged.FrameSize", Settings_FrameSize);
+
+    local function Settings_QuestFrameScale(dbValue, userInput)
+        if not addon.IS_LEGACY_ASCENSION then return end;
+        dbValue = tonumber(dbValue) or 1;
+        MainFrame:SetScale(LEGACY_BASE_SCALE * dbValue);
+        if userInput and DEFAULT_CHAT_FRAME then
+            DEFAULT_CHAT_FRAME:AddMessage("Dialogue UI quest scale: "..math.floor(dbValue * 100 + 0.5).."%");
+        end
+    end
+    CallbackRegistry:Register("SettingChanged.QuestFrameScale", Settings_QuestFrameScale);
 
     local function Settings_HideUI(dbValue, useInput)
         ExperienceBar:SetShown(dbValue == true);

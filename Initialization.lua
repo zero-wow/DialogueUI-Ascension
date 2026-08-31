@@ -17,6 +17,8 @@ addon.VERSION_TEXT = VERSION_TEXT;
 local DefaultValues = {
     Theme = 1,
     FrameSize = 2,
+    QuestFrameScale = 1,
+    SettingsFrameScale = 1,
     FontSizeBase = 1,
     FontText = "default",
     FontNumber = "default",
@@ -137,7 +139,23 @@ local function GetDBValue(dbKey)
 end
 addon.GetDBValue = GetDBValue;
 
+local function NormalizeFrameScale(value)
+    if type(value) ~= "number" then
+        value = 1;
+    end
+    value = math.floor(value * 20 + 0.5) / 20;
+    if value < 0.75 then
+        return 0.75
+    elseif value > 1.5 then
+        return 1.5
+    end
+    return value
+end
+
 local function SetDBValue(dbKey, value, userInput)
+    if dbKey == "QuestFrameScale" or dbKey == "SettingsFrameScale" then
+        value = NormalizeFrameScale(value);
+    end
     if addon.IS_LEGACY_ASCENSION then
         -- The build-12340 client has no GamePad input surface and exposes no
         -- readable camera zoom, so these two Retail modes cannot be selected
