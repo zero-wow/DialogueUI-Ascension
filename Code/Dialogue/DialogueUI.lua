@@ -331,8 +331,8 @@ local function CreateLegacyParchment(parent)
     bottom:SetPoint("BOTTOMRIGHT", bottomRight, "BOTTOMLEFT");
     left:SetPoint("TOPLEFT", topLeft, "BOTTOMLEFT");
     left:SetPoint("BOTTOMRIGHT", bottomLeft, "TOPRIGHT");
-    right:SetPoint("TOPLEFT", topRight, "BOTTOMRIGHT");
-    right:SetPoint("BOTTOMRIGHT", bottomRight, "TOPLEFT");
+    right:SetPoint("TOPLEFT", topRight, "BOTTOMLEFT");
+    right:SetPoint("BOTTOMRIGHT", bottomRight, "TOPRIGHT");
     center:SetPoint("TOPLEFT", top, "BOTTOMLEFT");
     center:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT");
 
