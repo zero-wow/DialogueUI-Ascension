@@ -286,17 +286,16 @@ end
 -- This deliberately avoids the Retail-only TextureSlice API.
 local function CreateLegacyParchment(parent)
     local edgeSize = 64;
-    -- Exact coordinates of the large dialogue scroll inside the original
-    -- 1024x2048 Retail Parchment atlas.  Keeping the source dimensions at
-    -- powers of two lets the 3.3.5 renderer load the existing texture.
+    -- Exact coordinates of the Retail scroll copied without rescaling into
+    -- a legacy-safe 1024x1024 power-of-two TGA.
     local leftU = 128/1024;
     local innerLeftU = 208/1024;
     local innerRightU = 816/1024;
     local rightU = 896/1024;
-    local topV = 120/2048;
-    local innerTopV = 200/2048;
-    local innerBottomV = 952/2048;
-    local bottomV = 1032/2048;
+    local topV = 56/1024;
+    local innerTopV = 136/1024;
+    local innerBottomV = 888/1024;
+    local bottomV = 968/1024;
     local pieces = {};
     local controller = {pieces = pieces, parent = parent};
 
@@ -452,7 +451,7 @@ function DUIDialogBaseMixin:OnLoad()
         -- Root BACKGROUND regions are known to render correctly on this client
         -- (the earlier solid diagnostic backdrop used this exact owner).
         self.LegacyParchment = CreateLegacyParchment(self);
-        self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("Parchment.tga"));
+        self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("LegacyPanel.tga"));
         self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
@@ -663,7 +662,7 @@ function DUIDialogBaseMixin:LoadTheme()
     local themeID = ThemeUtil:GetThemeID();
 
     if self.LegacyParchment then
-        self.LegacyParchment:SetParchmentTexture(parchmentFile);
+        self.LegacyParchment:SetParchmentTexture(prefix.."LegacyPanel.tga");
         self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
