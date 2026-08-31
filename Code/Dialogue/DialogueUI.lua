@@ -290,8 +290,17 @@ local function CreateLegacyParchment(parent)
     frame:SetFrameLevel(parent:GetFrameLevel());
 
     local edgeSize = 64;
-    local edgeU = 80/768;
-    local edgeV = 80/912;
+    -- Exact coordinates of the large dialogue scroll inside the original
+    -- 1024x2048 Retail Parchment atlas.  Keeping the source dimensions at
+    -- powers of two lets the 3.3.5 renderer load the existing texture.
+    local leftU = 128/1024;
+    local innerLeftU = 208/1024;
+    local innerRightU = 816/1024;
+    local rightU = 896/1024;
+    local topV = 120/2048;
+    local innerTopV = 200/2048;
+    local innerBottomV = 952/2048;
+    local bottomV = 1032/2048;
     local pieces = {};
 
     local function CreatePiece(left, right, top, bottom)
@@ -301,15 +310,15 @@ local function CreateLegacyParchment(parent)
         return texture
     end
 
-    local topLeft = CreatePiece(0, edgeU, 0, edgeV);
-    local top = CreatePiece(edgeU, 1 - edgeU, 0, edgeV);
-    local topRight = CreatePiece(1 - edgeU, 1, 0, edgeV);
-    local left = CreatePiece(0, edgeU, edgeV, 1 - edgeV);
-    local center = CreatePiece(edgeU, 1 - edgeU, edgeV, 1 - edgeV);
-    local right = CreatePiece(1 - edgeU, 1, edgeV, 1 - edgeV);
-    local bottomLeft = CreatePiece(0, edgeU, 1 - edgeV, 1);
-    local bottom = CreatePiece(edgeU, 1 - edgeU, 1 - edgeV, 1);
-    local bottomRight = CreatePiece(1 - edgeU, 1, 1 - edgeV, 1);
+    local topLeft = CreatePiece(leftU, innerLeftU, topV, innerTopV);
+    local top = CreatePiece(innerLeftU, innerRightU, topV, innerTopV);
+    local topRight = CreatePiece(innerRightU, rightU, topV, innerTopV);
+    local left = CreatePiece(leftU, innerLeftU, innerTopV, innerBottomV);
+    local center = CreatePiece(innerLeftU, innerRightU, innerTopV, innerBottomV);
+    local right = CreatePiece(innerRightU, rightU, innerTopV, innerBottomV);
+    local bottomLeft = CreatePiece(leftU, innerLeftU, innerBottomV, bottomV);
+    local bottom = CreatePiece(innerLeftU, innerRightU, innerBottomV, bottomV);
+    local bottomRight = CreatePiece(innerRightU, rightU, innerBottomV, bottomV);
 
     topLeft:SetPoint("TOPLEFT");
     topLeft:SetSize(edgeSize, edgeSize);
@@ -429,7 +438,7 @@ function DUIDialogBaseMixin:OnLoad()
         -- textures can therefore end up beneath the world unless we place the
         -- legacy slice immediately below the visible FrontFrame content.
         self.LegacyParchment:SetFrameLevel(self.FrontFrame:GetFrameLevel() - 1);
-        self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("LegacyPanel.tga"));
+        self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("Parchment.tga"));
         self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
@@ -640,7 +649,7 @@ function DUIDialogBaseMixin:LoadTheme()
     local themeID = ThemeUtil:GetThemeID();
 
     if self.LegacyParchment then
-        self.LegacyParchment:SetParchmentTexture(prefix.."LegacyPanel.tga");
+        self.LegacyParchment:SetParchmentTexture(parchmentFile);
         self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();

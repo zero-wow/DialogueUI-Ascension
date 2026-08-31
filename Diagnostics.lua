@@ -7,6 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
+local RUNTIME_BUILD = "1.0.5-d-ascension.12";
 
 local type = type;
 local tostring = tostring;
@@ -63,7 +64,8 @@ local function BuildReport()
     local lines = {
         "Dialogue UI - Ascension diagnostic report",
         "Addon: "..addonName,
-        "Version: "..tostring(GetAddOnMetadata and GetAddOnMetadata(addonName, "Version") or "unknown"),
+        "Runtime build: "..RUNTIME_BUILD,
+        "Cached TOC version: "..tostring(GetAddOnMetadata and GetAddOnMetadata(addonName, "Version") or "unknown"),
         "Recorded errors: "..#errors,
         "",
     };
