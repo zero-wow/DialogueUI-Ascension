@@ -2380,8 +2380,28 @@ function DUIDialogBaseMixin:ShowUI(event, ...)
 
     if not self:IsShown() then
         CameraUtil:InitiateInteraction();
-        self:PlayIntroAnimation();
+        if addon.IS_LEGACY_ASCENSION then
+            -- The Retail intro relies on a chain of frame alpha/OnUpdate
+            -- behavior that is not reliable on the 3.3.5 XML/frame runtime.
+            -- A visible, static panel is preferable to a frame that remains
+            -- technically shown but fully transparent.
+            self:SetScript("OnUpdate", nil);
+            self:SetHeight(self.frameHeight);
+            self:SetAlpha(1);
+            self.ContentFrame:SetClipsChildren(false);
+        else
+            self:PlayIntroAnimation();
+        end
         self:OnEvent(event);
+    end
+
+    if addon.IS_LEGACY_ASCENSION then
+        -- Also recover a panel that was shown by an earlier event but left
+        -- transparent before its first usable gossip/quest payload arrived.
+        self:SetScript("OnUpdate", nil);
+        self:SetHeight(self.frameHeight);
+        self:SetAlpha(1);
+        self.ContentFrame:SetClipsChildren(false);
     end
 
     self:Show();

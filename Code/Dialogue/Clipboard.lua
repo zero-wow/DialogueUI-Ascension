@@ -166,6 +166,13 @@ function Clipboard:Init()
     self:SetPoint("CENTER", UIParent, "CENTER", 0, 0);
     self:SetFrameStrata("DIALOG");
 
+    -- The Retail asset uses nine-slice rendering, which legacy Wrath does
+    -- not provide.  Keep an opaque, high-contrast layer behind every copied
+    -- report so diagnostics remain readable regardless of the scene.
+    local solidBackground = self:CreateTexture(nil, "BACKGROUND", nil, -8);
+    solidBackground:SetAllPoints(true);
+    solidBackground:SetTexture(0.035, 0.025, 0.02, 0.94);
+
     local bg = self:CreateTexture(nil, "BACKGROUND");
     bg:SetAllPoints(true);
     local corner = 16;
@@ -191,7 +198,7 @@ function Clipboard:Init()
     self.EditBox = EditBox;
     local eidtBoxWidth = FRAME_WIDTH - 3*FRAME_INSET - SCROLLBAR_WIDTH;
     EditBox:SetFontObject("DUIFont_Quest_Quest");
-    --EditBox:SetTextColor(1, 1, 1);
+    EditBox:SetTextColor(1, 0.9, 0.7);
     EditBox:SetAutoFocus(false);
     EditBox:SetMultiLine(true);
     --EditBox:SetVisibleTextByteLimit(32);    --Not just being invisible, but truncated

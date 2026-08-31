@@ -71,12 +71,21 @@ local function BuildReport()
     local dialogue = addon.DialogueUI or _G.DUIQuestFrame;
     local settings = addon.SettingsUI or _G.DUIDialogSettings;
     local state = addon.GetInteractionDebugState and addon.GetInteractionDebugState() or nil;
+    local function DescribeFrame(label, frame)
+        if not frame then
+            return "  "..label..": missing";
+        end
+        local alpha = frame.GetEffectiveAlpha and frame:GetEffectiveAlpha() or frame:GetAlpha();
+        return format("  %s: present; shown=%s; alpha=%.2f; size=%.0fx%.0f",
+            label, tostring(frame:IsShown()), tonumber(alpha) or 0,
+            tonumber(frame:GetWidth()) or 0, tonumber(frame:GetHeight()) or 0);
+    end
+
     tinsert(lines, "Runtime status:");
-    tinsert(lines, "  Quest frame: "..(dialogue and "present" or "missing")
-        .."; shown="..tostring(dialogue and dialogue.IsShown and dialogue:IsShown() or false)
+    tinsert(lines, DescribeFrame("Quest frame", dialogue)
         .."; loading="..tostring(dialogue and dialogue.isGameLoading or false));
-    tinsert(lines, "  Settings frame: "..(settings and "present" or "missing")
-        .."; shown="..tostring(settings and settings.IsShown and settings:IsShown() or false));
+    tinsert(lines, DescribeFrame("Settings frame", settings));
+    tinsert(lines, "  UI parent alpha="..format("%.2f", UIParent:GetAlpha()));
     if state then
         tinsert(lines, "  Takeover active="..tostring(state.takeoverActive)
             .."; external handler="..tostring(state.handledExternally));
