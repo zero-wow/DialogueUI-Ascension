@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.14";
+local RUNTIME_BUILD = "1.0.5-d-ascension.15";
 
 local type = type;
 local tostring = tostring;
@@ -19,6 +19,7 @@ local find = string.find;
 local sub = string.sub;
 local GetTime = GetTime;
 local debugstack = debugstack;
+local CreateFrame = addon.Legacy.CreateFrame or CreateFrame;
 
 local function GetStore()
     if type(DialogueUI_Diagnostics) ~= "table" then
@@ -164,6 +165,34 @@ SlashCmdList.DIALOGUEUIERRORS = function(message)
         ShowReport();
     end
 end;
+
+local function ToggleStandaloneParchment()
+    local frame = _G.DUIStandaloneParchmentTest;
+    if not frame then
+        frame = CreateFrame("Frame", "DUIStandaloneParchmentTest", UIParent);
+        frame:SetSize(493, 580);
+        frame:SetPoint("CENTER", UIParent, "CENTER");
+        frame:SetFrameStrata("DIALOG");
+        frame:SetFrameLevel(100);
+
+        local texture = frame:CreateTexture(nil, "BACKGROUND");
+        texture:SetAllPoints(frame);
+        texture:SetTexture("Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Brown\\Parchment.tga");
+        texture:SetTexCoord(128/1024, 896/1024, 120/2048, 1032/2048);
+        texture:Show();
+        frame.Texture = texture;
+        frame:Hide();
+    end
+
+    if frame:IsShown() then
+        frame:Hide();
+    else
+        frame:Show();
+    end
+end
+
+SLASH_DIALOGUEUIPARCHMENT1 = "/duiparchment";
+SlashCmdList.DIALOGUEUIPARCHMENT = ToggleStandaloneParchment;
 
 addon.Diagnostics = {
     CaptureError = CaptureError,
