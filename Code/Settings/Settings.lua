@@ -9,6 +9,8 @@ local CallbackRegistry = addon.CallbackRegistry;
 local TTSUtil = addon.TTSUtil;
 local PlaySound = addon.PlaySound;
 local InCombatLockdown = InCombatLockdown;
+local SetOverrideBindingClick = SetOverrideBindingClick;
+local ClearOverrideBindings = ClearOverrideBindings;
 local CreateFrame = addon.Legacy.CreateFrame or CreateFrame;
 local type = type;
 
@@ -2301,6 +2303,60 @@ SLASH_DIALOGUEUISETTINGS1 = "/dui";
 SLASH_DIALOGUEUISETTINGS2 = "/dialogueui";
 SlashCmdList.DIALOGUEUISETTINGS = function()
     DialogueUI_ShowSettingsFrame();
+end
+
+-- Retail listens for F1 through SetPropagateKeyboardInput, which Wrath does
+-- not provide.  Use one narrowly scoped override binding instead of enabling
+-- raw keyboard capture (which can swallow unrelated action-bar keys).
+if addon.IS_LEGACY_ASCENSION and type(SetOverrideBindingClick) == "function" and type(ClearOverrideBindings) == "function" then
+    local settingsHotkeyButton = CreateFrame("Button", "DUIDialogLegacySettingsHotkeyButton", UIParent);
+    settingsHotkeyButton:Hide();
+    settingsHotkeyButton:RegisterForClicks("LeftButtonUp");
+    settingsHotkeyButton:SetScript("OnClick", function()
+        if addon.DialogueUI and addon.DialogueUI:IsShown() then
+            DialogueUI_ShowSettingsFrame();
+        end
+    end);
+
+    local settingsHotkey = CreateFrame("Frame");
+    addon.LegacySettingsHotkey = settingsHotkey;
+
+    function settingsHotkey:ApplyState()
+        if InCombatLockdown() then
+            self:RegisterEvent("PLAYER_REGEN_ENABLED");
+            return
+        end
+
+        if self.shouldEnable then
+            if not self.bindingActive then
+                local success = pcall(SetOverrideBindingClick, self, true, "F1", settingsHotkeyButton:GetName(), "LeftButton");
+                self.bindingActive = success or nil;
+            end
+        elseif self.bindingActive then
+            local success = pcall(ClearOverrideBindings, self);
+            if success then
+                self.bindingActive = nil;
+            end
+        end
+
+        if (self.shouldEnable and self.bindingActive) or ((not self.shouldEnable) and (not self.bindingActive)) then
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED");
+        end
+    end
+
+    function settingsHotkey:Enable()
+        self.shouldEnable = true;
+        self:ApplyState();
+    end
+
+    function settingsHotkey:Disable()
+        self.shouldEnable = nil;
+        self:ApplyState();
+    end
+
+    settingsHotkey:SetScript("OnEvent", function(self)
+        self:ApplyState();
+    end);
 end
 
 

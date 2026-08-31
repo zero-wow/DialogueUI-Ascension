@@ -2631,6 +2631,9 @@ function DUIDialogBaseMixin:OnShow()
     GhostCatcher:MainFrameOnShow();
 
     KeyboardControl:SetParentFrame(self);
+    if addon.LegacySettingsHotkey then
+        addon.LegacySettingsHotkey:Enable();
+    end
 
     self:RegisterEvent("GOSSIP_SHOW");
     self:RegisterEvent("GOSSIP_CLOSED");
@@ -2670,6 +2673,10 @@ function DUIDialogBaseMixin:CloseDialogInteraction()
 end
 
 function DUIDialogBaseMixin:OnHide()
+    if addon.LegacySettingsHotkey then
+        addon.LegacySettingsHotkey:Disable();
+    end
+
     if GhostCatcher:MainFrameStartHiding() then return end;
 
     self:Hide();
