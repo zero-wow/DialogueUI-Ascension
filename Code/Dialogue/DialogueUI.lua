@@ -344,10 +344,13 @@ function DUIDialogBaseMixin:OnLoad()
         -- That composition bleeds far outside its parent on the 3.3.5 texture
         -- renderer.  The atlas already contains a complete scroll panel, so
         -- use that bounded region directly on legacy clients.
-        local parchment = self.BackgroundFrame:CreateTexture(nil, "BACKGROUND", nil, -2);
+        local parchment = self:CreateTexture(nil, "BACKGROUND");
         parchment:SetAllPoints(self);
         parchment:SetTexCoord(128/1024, 896/1024, 120/2048, 1032/2048);
         self.LegacyParchment = parchment;
+        for _, piece in ipairs(self.Parchments) do
+            piece:Hide();
+        end
 
         local closeButton = CreateFrame("Button", nil, self, "UIPanelCloseButton");
         closeButton:SetPoint("TOPRIGHT", self, "TOPRIGHT", -4, -4);
@@ -369,6 +372,12 @@ function DUIDialogBaseMixin:OnLoad()
     self.Parchments[2]:SetPoint("BOTTOMRIGHT", self.Parchments[3], "TOPRIGHT", 0, 0);
 
     self.BackgroundDecor = self.BackgroundFrame.ClipFrame.BackgroundDecor;
+    if addon.IS_LEGACY_ASCENSION then
+        -- 3.3.5 cannot clip this Retail-only decorative texture to ClipFrame.
+        -- Keep it disabled rather than letting quest scenery cover the screen.
+        self.BackgroundDecor:SetAlpha(0);
+        self.BackgroundDecor:Hide();
+    end
 
 
     --ScrollFrame
@@ -877,9 +886,13 @@ function DUIDialogBaseMixin:UpdateQuestTitle(method)
         HeaderWidgetManger:RequestQuestData(questID);
     end
 
-    local decor = API.GetQuestBackgroundDecor(questID);
-    self.BackgroundDecor:SetTexture(decor);
-    self.BackgroundDecor:Show();
+    if not addon.IS_LEGACY_ASCENSION then
+        local decor = API.GetQuestBackgroundDecor(questID);
+        self.BackgroundDecor:SetTexture(decor);
+        self.BackgroundDecor:Show();
+    else
+        self.BackgroundDecor:Hide();
+    end
 
     CallbackRegistry:Trigger("ViewingQuest", questID, method);
 
