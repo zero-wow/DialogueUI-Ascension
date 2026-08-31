@@ -19,6 +19,7 @@ local IsAutoSelectOption = addon.IsAutoSelectOption;
 local GetDBBool = addon.GetDBBool;
 local GetDBValue = addon.GetDBValue;
 local SetDBValue = addon.SetDBValue;
+local IsShiftKeyDown = IsShiftKeyDown;
 local SwipeEmulator = addon.SwipeEmulator;
 local GossipDataProvider = addon.GossipDataProvider;
 local HeaderWidgetManger = addon.HeaderWidgetManger;
@@ -34,6 +35,7 @@ local SCROLLDOWN_THEN_ACCEPT_QUEST = false;
 local INPUT_DEVICE_GAME_PAD = false;
 local LEGACY_BASE_SCALE = 0.5;
 local LEGACY_SCALE_STEP = 0.05;
+local CUSTOM_FRAME_SIZE_ID = 5;
 --local ALWAYS_GOSSIP = false;
 --local SHOW_NPC_NAME = false;
 --local MARK_HIGHEST_SELL_PRICE = false;
@@ -176,8 +178,42 @@ function DUIDialogBaseMixin:UpdateFrameBaseOffset(viewportWidth)
     end
 
     self.frameOffsetX = frameOffsetX;
+    if addon.RestoreFramePosition(self, "QuestFramePosition") then
+        return
+    end
     self:ClearAllPoints();
     self:SetPoint("CENTER", nil, "CENTER", frameOffsetX, 0);
+end
+
+function DUIDialogBaseMixin:ResetSavedPosition()
+    addon.ClearFramePosition("QuestFramePosition");
+    self:UpdateFrameBaseOffset();
+end
+
+local function QuestFrameDrag_OnDragStart(handle)
+    local frame = handle.owner;
+    if not frame or (GetDBBool("LockFrames") and not IsShiftKeyDown()) then
+        return
+    end
+    frame.isUserDragging = true;
+    frame:SetScript("OnUpdate", nil);
+    frame:StartMoving();
+end
+
+local function QuestFrameDrag_OnDragStop(handle)
+    local frame = handle.owner;
+    if not frame or not frame.isUserDragging then return end;
+    frame.isUserDragging = nil;
+    frame:StopMovingOrSizing();
+    addon.SaveFramePosition(frame, "QuestFramePosition");
+end
+
+local function SetupQuestFrameDragHandle(handle, owner)
+    handle.owner = owner;
+    handle:EnableMouse(true);
+    handle:RegisterForDrag("LeftButton");
+    handle:SetScript("OnDragStart", QuestFrameDrag_OnDragStart);
+    handle:SetScript("OnDragStop", QuestFrameDrag_OnDragStop);
 end
 
 function DUIDialogBaseMixin:UpdateFrameSize()
@@ -282,6 +318,13 @@ function DUIDialogBaseMixin:UpdateFrameSize()
         end
         self.smallItemButtonPool:ProcessAllObjects(UpdateButtonWidth);
     end
+
+    if self.questLayout and self.ApplyQuestScrollLayout then
+        self:ApplyQuestScrollLayout();
+    end
+    if self.UpdateLegacyBackgroundPixel then
+        self:UpdateLegacyBackgroundPixel();
+    end
 end
 
 -- The Retail background is a tall texture atlas.  On 3.3.5 its original
@@ -368,9 +411,13 @@ local function CreateLegacyParchment(parent)
     return controller;
 end
 
-local function GetLegacyPanelTexture()
-    local themeFolder = ThemeUtil:GetThemeID() == 2 and "Theme_Dark" or "Theme_Brown";
-    return "Interface\\AddOns\\DialogueUI-Ascension\\Art\\"..themeFolder.."\\LegacyPanel.tga";
+local LEGACY_BROWN_PANEL_TEXTURE = "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Brown\\LegacyPanel.tga";
+local LEGACY_DARK_PANEL_TEXTURE = "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Dark\\GenericFrame-Tiled-Large.tga";
+
+function DUIDialogBaseMixin:UpdateLegacyBackgroundPixel()
+    if not self.LegacyDarkFrame then return end;
+    local scale = self.GetEffectiveScale and self:GetEffectiveScale() or 1;
+    self.LegacyDarkFrame:SetOffset(API.GetPixelForScale(scale, 16));
 end
 
 function DUIDialogBaseMixin:OnLoad()
@@ -388,6 +435,8 @@ function DUIDialogBaseMixin:OnLoad()
         if self.EnableMouseWheel then
             self:EnableMouseWheel(true);
         end
+        self:SetMovable(true);
+        self:SetClampedToScreen(true);
 
         -- Let the stock Escape-key dispatcher close this non-secure panel.
         -- This works without the Retail key-propagation API, so it cannot
@@ -406,6 +455,15 @@ function DUIDialogBaseMixin:OnLoad()
             end
         end
     end
+
+    SetupQuestFrameDragHandle(self, self);
+    local dragHandle = CreateFrame("Frame", nil, self);
+    dragHandle:SetPoint("TOPLEFT", self, "TOPLEFT", 40, -2);
+    dragHandle:SetPoint("TOPRIGHT", self, "TOPRIGHT", -40, -2);
+    dragHandle:SetHeight(22);
+    dragHandle:SetFrameLevel(self.FrontFrame:GetFrameLevel() + 5);
+    SetupQuestFrameDragHandle(dragHandle, self);
+    self.DragHandle = dragHandle;
 
     --TooltipFrame:SetParent(self);
     TooltipFrame:SetShowDelay(0.25);
@@ -463,8 +521,18 @@ function DUIDialogBaseMixin:OnLoad()
         -- Root BACKGROUND regions are known to render correctly on this client
         -- (the earlier solid diagnostic backdrop used this exact owner).
         self.LegacyParchment = CreateLegacyParchment(self);
-        self.LegacyParchment:SetParchmentTexture(GetLegacyPanelTexture());
+        self.LegacyParchment:SetParchmentTexture(LEGACY_BROWN_PANEL_TEXTURE);
         self.LegacyParchment:Show();
+        if addon.CreateLegacyNineSlice then
+            -- The dark Retail parchment deliberately lets the world show
+            -- through its entire body, which becomes muddy on this renderer.
+            -- Reuse the settings panel's proven feathered frame for Dark so
+            -- all four torn edges remain clean and the center stays readable.
+            self.LegacyDarkFrame = addon.CreateLegacyNineSlice(self);
+            self.LegacyDarkFrame:SetTexture(LEGACY_DARK_PANEL_TEXTURE);
+            self:UpdateLegacyBackgroundPixel();
+            self.LegacyDarkFrame:Hide();
+        end
 
         -- Retain a file-free fallback, but keep it hidden while the isolated
         -- 1024x1024 legacy panel is active.  The unsafe 1024x2048 Retail atlas
@@ -691,8 +759,17 @@ function DUIDialogBaseMixin:LoadTheme()
     local themeID = ThemeUtil:GetThemeID();
 
     if self.LegacyParchment then
-        self.LegacyParchment:SetParchmentTexture(GetLegacyPanelTexture());
-        self.LegacyParchment:Show();
+        if themeID == 2 and self.LegacyDarkFrame then
+            self.LegacyParchment:Hide();
+            self.LegacyDarkFrame:SetTexture(LEGACY_DARK_PANEL_TEXTURE);
+            self.LegacyDarkFrame:Show();
+        else
+            if self.LegacyDarkFrame then
+                self.LegacyDarkFrame:Hide();
+            end
+            self.LegacyParchment:SetParchmentTexture(LEGACY_BROWN_PANEL_TEXTURE);
+            self.LegacyParchment:Show();
+        end
         if self.LegacySafeBackdrop then
             self.LegacySafeBackdrop:Hide();
         end
@@ -911,6 +988,12 @@ function DUIDialogBaseMixin:AcquireAndSetSubHeader(text)
     return background
 end
 
+function DUIDialogBaseMixin:ApplyQuestScrollLayout()
+    local topOffset = (28 + 51 + 8) * FRAME_SIZE_MULTIPLIER;
+    self.ScrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -topOffset);
+    self.scrollViewHeight = self.scrollFrameBaseHeight - math.max(0, topOffset - 42);
+end
+
 function DUIDialogBaseMixin:UseQuestLayout(state)
     local forceUpdate = SETTINGS_UI_VISIBLE == true;
     local isQuestChanged;
@@ -922,10 +1005,6 @@ function DUIDialogBaseMixin:UseQuestLayout(state)
 
         if (not self.questLayout) or forceUpdate then
             self.questLayout = true;
-            local topOffset = (28 + 40) * FRAME_SIZE_MULTIPLIER;
-            self.scrollViewHeight = self.scrollFrameBaseHeight - 40 * FRAME_SIZE_MULTIPLIER;
-            --self.ScrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", PADDING_H, -PADDING_TOP + topOffset);
-            self.ScrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -topOffset);
             self.FrontFrame.Header:Show();
             self.FrontFrame.HeaderDivider:Hide();
             FriendshipBar:Hide();
@@ -946,12 +1025,16 @@ function DUIDialogBaseMixin:UseQuestLayout(state)
 
         if questID and API.IsQuestFlaggedCompletedOnAccount(questID) then
             self.WarbandCompleteAlert:Show();
-            self.FrontFrame.Header.Title:SetPoint("RIGHT", self.FrontFrame.Header, "RIGHT", -56, 2);
+            self.FrontFrame.Header.Title:SetPoint("RIGHT", self.FrontFrame.Header, "RIGHT", -56 * FRAME_SIZE_MULTIPLIER, 2 * FRAME_SIZE_MULTIPLIER);
             CallbackRegistry:TriggerOnNextUpdate("WarbandCompleteAlert.Show", self.FrontFrame.Header, self.WarbandCompleteAlert);
         else
             self.WarbandCompleteAlert:Hide();
-            self.FrontFrame.Header.Title:SetPoint("RIGHT", self.FrontFrame.Header, "RIGHT", -8, 2);
+            self.FrontFrame.Header.Title:SetPoint("RIGHT", self.FrontFrame.Header, "RIGHT", -8 * FRAME_SIZE_MULTIPLIER, 2 * FRAME_SIZE_MULTIPLIER);
         end
+
+        -- UpdateFrameSize always rebuilds the generic scroll anchors first.
+        -- Reapply quest geometry even when the quest itself did not change.
+        self:ApplyQuestScrollLayout();
 
     elseif self.questLayout ~= false or forceUpdate then
         self.questLayout = false;
@@ -1811,7 +1894,7 @@ function DUIDialogBaseMixin:HandleQuestDetail(playFadeIn)
     if API.IsQuestAutoAccepted() or API.IsPlayerOnQuest(self.questID) then
         AcceptButton:SetButtonAlreadyOnQuest();
         ExitButton:SetButtonCloseAutoAcceptQuest();
-        KeyboardControl:SetAction("Confirm", ExitButton);
+        KeyboardControl:SetAction("Confirm", ExitButton, true);
         self.acknowledgeAutoAcceptQuest = true;
     else
         AcceptButton:SetButtonAcceptQuest();
@@ -1846,6 +1929,7 @@ function DUIDialogBaseMixin:HandleQuestAccepted(questID, classicQuestID)
             local ExitButton = self:AcquireExitButton();
             AcceptButton:SetButtonAlreadyOnQuest();
             ExitButton:SetButtonCloseAutoAcceptQuest();
+            KeyboardControl:SetAction("Confirm", ExitButton, true);
         end
     end
 end
@@ -2519,7 +2603,14 @@ function DUIDialogBaseMixin:PlayIntroAnimation()
     self.fromOffsetX = self.frameOffsetX + ((self.frameOffsetX < 0 and -72) or 72);
     self.t = 0;
     self.ContentFrame:SetClipsChildren(true);
-    self:SetScript("OnUpdate", ActiveAnimIntro);
+    if GetDBValue("QuestFramePosition") then
+        -- Fly-in animation writes a CENTER anchor every frame and would erase
+        -- a user-saved position.  A positioned frame still receives the
+        -- normal fade without moving.
+        self:SetScript("OnUpdate", AnimIntro_SimpleFadeIn_OnUpdate);
+    else
+        self:SetScript("OnUpdate", ActiveAnimIntro);
+    end
 end
 
 local DialogHandlers = {
@@ -2690,6 +2781,9 @@ function DUIDialogBaseMixin:CloseDialogInteraction()
 end
 
 function DUIDialogBaseMixin:OnHide()
+    if self.isUserDragging then
+        QuestFrameDrag_OnDragStop(self);
+    end
     if addon.LegacySettingsHotkey then
         addon.LegacySettingsHotkey:Disable();
     end
@@ -2762,6 +2856,17 @@ end
 function DUIDialogBaseMixin:AdjustLegacyFrameScale(delta)
     if not addon.IS_LEGACY_ASCENSION or not IsControlKeyDown() then
         return false
+    end
+
+    local frameSize = GetDBValue("FrameSize");
+    if frameSize ~= CUSTOM_FRAME_SIZE_ID then
+        if type(frameSize) == "number" and frameSize >= 0 and frameSize <= 4 then
+            SetDBValue("QuestFrameSizePreset", frameSize);
+        end
+        SetDBValue("FrameSize", CUSTOM_FRAME_SIZE_ID);
+        if addon.SettingsUI then
+            addon.SettingsUI:UpdateOptionButtonByDBKey("FrameSize");
+        end
     end
 
     local current = tonumber(GetDBValue("QuestFrameScale")) or 1;
@@ -3786,7 +3891,10 @@ do  --Generic Settings Registry
         [4] = 1.4,
     };
 
-    local function Settings_FrameOrientation()
+    local function Settings_FrameOrientation(_, userInput)
+        if userInput then
+            addon.ClearFramePosition("QuestFramePosition");
+        end
         MainFrame:UpdateFrameBaseOffset();
         if addon.SettingsUI:IsShown() then
             addon.SettingsUI:MoveToBestPosition();
@@ -3794,19 +3902,32 @@ do  --Generic Settings Registry
     end
     CallbackRegistry:Register("SettingChanged.FrameOrientation", Settings_FrameOrientation);
 
-    local function Settings_FrameSize(dbValue)
+    local function Settings_FrameSize(dbValue, userInput)
         --1: 1.0, 2: 1.1, 3:1.25
 
-        if GetDBBool("MobileDeviceMode") then
-            dbValue = 4;
+        local requestedValue = dbValue;
+        if requestedValue ~= CUSTOM_FRAME_SIZE_ID and FrameSizeIndexScale[requestedValue] then
+            if GetDBValue("QuestFrameSizePreset") ~= requestedValue then
+                SetDBValue("QuestFrameSizePreset", requestedValue);
+            end
+            if addon.IS_LEGACY_ASCENSION and userInput and GetDBValue("QuestFrameScale") ~= 1 then
+                SetDBValue("QuestFrameScale", 1);
+            end
         end
 
-        local newScale = dbValue and FrameSizeIndexScale[dbValue];
+        local selectedValue = requestedValue;
+        if GetDBBool("MobileDeviceMode") then
+            selectedValue = 4;
+        elseif requestedValue == CUSTOM_FRAME_SIZE_ID then
+            selectedValue = GetDBValue("QuestFrameSizePreset") or 2;
+        end
+
+        local newScale = selectedValue and FrameSizeIndexScale[selectedValue];
 
         if newScale then
             FRAME_SIZE_MULTIPLIER = newScale;
 
-            if dbValue == 0 then
+            if selectedValue == 0 then
                 FRAME_OFFSET_RATIO = 4/5;
             else
                 FRAME_OFFSET_RATIO = 3/4;
@@ -3822,6 +3943,7 @@ do  --Generic Settings Registry
         if not addon.IS_LEGACY_ASCENSION then return end;
         dbValue = tonumber(dbValue) or 1;
         MainFrame:SetScale(LEGACY_BASE_SCALE * dbValue);
+        MainFrame:UpdateLegacyBackgroundPixel();
         if userInput and DEFAULT_CHAT_FRAME then
             DEFAULT_CHAT_FRAME:AddMessage("Dialogue UI quest scale: "..math.floor(dbValue * 100 + 0.5).."%");
         end

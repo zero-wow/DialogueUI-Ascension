@@ -2692,7 +2692,12 @@ do  -- Tooltip
     API.IsRewardItemUpgrade = IsRewardItemUpgrade;
 
 
-    if C_TooltipInfo then
+    -- A 3.3.5-derived client may expose a partial C_TooltipInfo namespace
+    -- without the complete Retail quest-reward data contract used by the
+    -- custom tooltip.  A missing getter fails quietly and leaves the reward
+    -- hover empty.  Normalize legacy tooltip data through the hidden native
+    -- GameTooltip below instead.
+    if C_TooltipInfo and not addon.IS_LEGACY_ASCENSION then
         addon.TooltipAPI = C_TooltipInfo;
 
     else

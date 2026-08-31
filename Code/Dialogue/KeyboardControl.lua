@@ -3,10 +3,12 @@
 
 local _, addon = ...
 local CreateFrame = addon.Legacy.CreateFrame or CreateFrame;
+local C_Timer = addon.Legacy.C_Timer or C_Timer;
 local API = addon.API;
 local Clipboard = addon.Clipboard;
 local SecureButtonContainer = addon.SecureButtonContainer;
 local BindingUtil = addon.BindingUtil;
+local NativeCreateFrame = addon.Legacy.NativeCreateFrame or CreateFrame;
 
 
 local GAMEPAD_CONFIRM = "PAD1";
@@ -28,6 +30,9 @@ local DEBUG_SHOW_GAMEPAD_BUTTON = false;    --[TEMP] Console user
 
 local InCombatLockdown = InCombatLockdown;
 local IsModifierKeyDown = IsModifierKeyDown;
+local SetOverrideBindingClick = SetOverrideBindingClick;
+local ClearOverrideBindings = ClearOverrideBindings;
+local RegisterStateDriver = RegisterStateDriver;
 local type = type;
 
 local KeyboardControl = CreateFrame("Frame");
@@ -36,12 +41,72 @@ KeyboardControl:SetFrameStrata("TOOLTIP");
 KeyboardControl:SetFixedFrameStrata(true);
 addon.KeyboardControl = KeyboardControl;
 
+
+-- Wrath has no SetPropagateKeyboardInput, so enabling a raw OnKeyDown listener
+-- can swallow every unhandled action-bar key.  The legacy client does support
+-- override click bindings, however.  Keep those bindings on an isolated owner
+-- and route only Confirm and Escape through two stable proxy buttons.
+--
+-- The secure combat state driver is important: protected bindings cannot be
+-- changed from ordinary Lua after combat lockdown starts.  Its restricted
+-- snippet clears this owner's bindings at the state transition, before they
+-- could mask an action-bar key in combat.  No secure frame is parented to the
+-- DialogueUI tree or to another addon's action buttons.
+local LegacyBindingOwner;
+local LegacyConfirmButton;
+local LegacyExitButton;
+
+if addon.IS_LEGACY_ASCENSION
+    and type(SetOverrideBindingClick) == "function"
+    and type(ClearOverrideBindings) == "function"
+    and type(RegisterStateDriver) == "function" then
+
+    local ownerCreated, owner = pcall(
+        NativeCreateFrame,
+        "Frame",
+        "DUIDialogLegacyKeyBindingOwner",
+        UIParent,
+        "SecureHandlerStateTemplate"
+    );
+
+    if ownerCreated and owner then
+        local stateReady = pcall(function()
+            owner:SetAttribute("_onstate-combat", [[
+                if newstate == "combat" then
+                    local confirmKey = self:GetAttribute("dui-confirm-key")
+                    if confirmKey then
+                        self:ClearBinding(confirmKey)
+                    end
+                    self:ClearBinding("ESCAPE")
+                end
+            ]]);
+            RegisterStateDriver(owner, "combat", "[combat] combat; nocombat");
+        end);
+
+        if stateReady then
+            LegacyBindingOwner = owner;
+            LegacyConfirmButton = NativeCreateFrame("Button", "DUIDialogLegacyConfirmKeyButton", UIParent);
+            LegacyExitButton = NativeCreateFrame("Button", "DUIDialogLegacyExitKeyButton", UIParent);
+            LegacyConfirmButton:Hide();
+            LegacyExitButton:Hide();
+            LegacyConfirmButton:RegisterForClicks("LeftButtonUp");
+            LegacyExitButton:RegisterForClicks("LeftButtonUp");
+        end
+    end
+end
+
 KeyboardControl.combatFrame = CreateFrame("Frame", nil, KeyboardControl, "DUISetPropagateKeyboardInputTemplate");   --"combatFrame" doesn't change KeyProgation dynamically based on input
 --KeyboardControl.combatFrame:SetPropagateKeyboardInput(true);
 
 function KeyboardControl:ResetKeyActions()
+    if addon.IS_LEGACY_ASCENSION and self.UpdateLegacyConfirmHotkey then
+        self:UpdateLegacyConfirmHotkey(nil);
+    end
     self.keyActions = {};
     self.actions = {};
+    if addon.IS_LEGACY_ASCENSION and self.RefreshLegacyBindings then
+        self:RefreshLegacyBindings();
+    end
 end
 KeyboardControl:ResetKeyActions()
 
@@ -92,14 +157,18 @@ end
 
 function KeyboardControl:SetAction(action, buttonToClick, override)
     if (not self.actions[action]) or override then
+        if addon.IS_LEGACY_ASCENSION then
+            self.legacyBindingSuspended = nil;
+        end
         self.actions[action] = {
             obj = buttonToClick,
             type = "button",
         };
-        -- Stock Wrath has no SetPropagateKeyboardInput. Enabling raw keyboard
-        -- capture would therefore consume every unhandled action-bar key.
-        -- Do not advertise a hotkey that the safe legacy path cannot capture.
         if addon.IS_LEGACY_ASCENSION then
+            self:QueueLegacyBindingRefresh();
+            if action == "Confirm" then
+                return BindingUtil:GetActiveActionKey(action)
+            end
             return nil
         end
         return BindingUtil:GetActiveActionKey(action)
@@ -108,6 +177,12 @@ end
 
 function KeyboardControl:SetIndexedAction(buttonIndex, buttonToClick, override)
     if buttonIndex <= 9 then
+        -- Numbered gossip/quest-list choices remain mouse-only on 3.3.5.  The
+        -- safe legacy override is deliberately limited to the footer action;
+        -- it must never turn SPACE into an implicit travel/gossip selection.
+        if addon.IS_LEGACY_ASCENSION then
+            return nil
+        end
         if buttonIndex == 1 then
             self:SetAction("Confirm", buttonToClick, override);
         end
@@ -116,25 +191,281 @@ function KeyboardControl:SetIndexedAction(buttonIndex, buttonToClick, override)
     end
 end
 
+
+local function IsVisibleAndEnabled(object)
+    if not object or type(object.OnClick) ~= "function" then
+        return false
+    end
+    if object.IsEnabled and not object:IsEnabled() then
+        return false
+    end
+    if object.IsVisible then
+        return object:IsVisible()
+    end
+    return object.IsShown and object:IsShown()
+end
+
+local LegacyConfirmButtonTypes = {
+    accept = true,
+    continue = true,
+    complete = true,
+    closeAutoAccepted = true,
+};
+
+local function IsLegacyQuestConfirmButton(object)
+    return object and LegacyConfirmButtonTypes[object.type] == true
+end
+
+local function IsSafeLegacyConfirmKey(key)
+    if type(key) ~= "string" or key == "" or key == "ESCAPE" then
+        return false
+    end
+    if BindingUtil.IsKeyInvalid and BindingUtil:IsKeyInvalid(key) then
+        return false
+    end
+    -- An Interact binding can technically be assigned to a mouse button.  A
+    -- dialog-wide mouse override would turn ordinary clicks into quest accepts.
+    return string.sub(key, 1, 6) ~= "BUTTON"
+        and string.sub(key, 1, 10) ~= "MOUSEWHEEL"
+end
+
+function KeyboardControl:UpdateLegacyConfirmHotkey(object, key)
+    local previous = self.legacyConfirmObject;
+    self.legacyConfirmObject = object;
+    self.updatingLegacyHotkey = true;
+    if previous and previous ~= object and previous.SetHotkey then
+        previous:SetHotkey(nil);
+        if previous.Layout then previous:Layout(true); end
+    end
+    if object and object.SetHotkey then
+        object:SetHotkey(key);
+        if object.Layout then object:Layout(true); end
+    end
+    self.updatingLegacyHotkey = nil;
+end
+
+function KeyboardControl:CanUseLegacyBindings()
+    local parent = self.parent;
+    return LegacyBindingOwner
+        and parent
+        and parent.IsShown
+        and parent:IsShown()
+        and not self.legacyBindingSuspended
+        and not InCombatLockdown()
+end
+
+function KeyboardControl:ClearLegacyBindings()
+    self.legacyBindingActive = nil;
+
+    if not LegacyBindingOwner then
+        return false
+    end
+
+    -- The combat state driver has already performed this operation inside the
+    -- restricted environment when lockdown is active.
+    if InCombatLockdown() then
+        return true
+    end
+
+    local cleared = pcall(ClearOverrideBindings, LegacyBindingOwner);
+    if cleared then
+        LegacyBindingOwner:SetAttribute("dui-confirm-key", nil);
+    end
+    return cleared
+end
+
+
+function KeyboardControl:RefreshLegacyBindings()
+    if not addon.IS_LEGACY_ASCENSION or not LegacyBindingOwner then
+        return
+    end
+
+    if not self:CanUseLegacyBindings() then
+        self:UpdateLegacyConfirmHotkey(nil);
+        self:ClearLegacyBindings();
+        return
+    end
+
+    -- Rebuild from scratch so a changed/disabled Confirm key never leaves its
+    -- previous override behind.
+    if not self:ClearLegacyBindings() then
+        return
+    end
+
+    local anyBinding;
+    local confirmBound;
+    local confirmAction = self.actions and self.actions.Confirm;
+    local confirmKey = confirmAction and BindingUtil:GetActiveActionKey("Confirm");
+    if IsSafeLegacyConfirmKey(confirmKey)
+        and confirmAction.type == "button"
+        and IsLegacyQuestConfirmButton(confirmAction.obj)
+        and IsVisibleAndEnabled(confirmAction.obj) then
+        confirmBound = pcall(
+            SetOverrideBindingClick,
+            LegacyBindingOwner,
+            true,
+            confirmKey,
+            LegacyConfirmButton:GetName(),
+            "LeftButton"
+        );
+        if confirmBound then
+            LegacyBindingOwner:SetAttribute("dui-confirm-key", confirmKey);
+        end
+        anyBinding = confirmBound or anyBinding;
+    end
+
+    self:UpdateLegacyConfirmHotkey(
+        confirmAction and confirmAction.obj or nil,
+        confirmBound and confirmKey or nil
+    );
+
+    local escapeBound = pcall(
+        SetOverrideBindingClick,
+        LegacyBindingOwner,
+        true,
+        "ESCAPE",
+        LegacyExitButton:GetName(),
+        "LeftButton"
+    );
+    anyBinding = escapeBound or anyBinding;
+    self.legacyBindingActive = anyBinding or nil;
+end
+
+
+function KeyboardControl:QueueLegacyBindingRefresh()
+    if not addon.IS_LEGACY_ASCENSION or self.legacyRefreshPending then
+        return
+    end
+
+    self.legacyRefreshPending = true;
+    C_Timer.After(0, function()
+        self.legacyRefreshPending = nil;
+        self:RefreshLegacyBindings();
+    end);
+end
+
+
+function KeyboardControl:SuspendLegacyBindings()
+    self.legacyBindingSuspended = true;
+    self:UpdateLegacyConfirmHotkey(nil);
+    self.keyActions = {};
+    self.actions = {};
+    self:ClearLegacyBindings();
+end
+
+
+function KeyboardControl:ExecuteLegacyConfirm()
+    if not self:CanUseLegacyBindings() then
+        return
+    end
+
+    -- Do not complete an obscured quest while the user is interacting with a
+    -- modal/editing surface layered over the dialogue.
+    if (Clipboard and Clipboard.IsShown and Clipboard:IsShown())
+        or (addon.SettingsUI and addon.SettingsUI:IsShown())
+        or (addon.BookUI and addon.BookUI:IsShown())
+        or (self.parent and self.parent.inputboxShown) then
+        return
+    end
+
+    local action = self.actions and self.actions.Confirm;
+    local object = action and action.obj;
+    if action
+        and action.type == "button"
+        and IsLegacyQuestConfirmButton(object)
+        and IsVisibleAndEnabled(object) then
+        local noFeedback = object:OnClick("GamePad");
+        if (not noFeedback) and object.PlayKeyFeedback then
+            object:PlayKeyFeedback();
+        end
+    end
+end
+
+
+function KeyboardControl:ExecuteLegacyExit()
+    if not self:CanUseLegacyBindings() then
+        return
+    end
+
+    if Clipboard and Clipboard.CloseIfShown and Clipboard:CloseIfShown() then
+        return
+    elseif addon.SettingsUI and addon.SettingsUI:IsShown() then
+        addon.SettingsUI:Hide();
+        return
+    elseif addon.BookUI and addon.BookUI:IsShown() then
+        addon.BookUI:Hide();
+        return
+    elseif self.parent and self.parent.inputboxShown and self.parent.HideInputBox then
+        self.parent:HideInputBox();
+        return
+    end
+
+    local parent = self.parent;
+    if parent and parent.HideUI then
+        local cancelPopupFirst = true;
+        local fromPressingKey = true;
+        parent:HideUI(cancelPopupFirst, fromPressingKey);
+    elseif parent then
+        parent:Hide();
+    end
+end
+
+
+if LegacyConfirmButton and LegacyExitButton then
+    LegacyConfirmButton:SetScript("OnClick", function()
+        KeyboardControl:ExecuteLegacyConfirm();
+    end);
+    LegacyExitButton:SetScript("OnClick", function()
+        KeyboardControl:ExecuteLegacyExit();
+    end);
+end
+
 function KeyboardControl:OnEvent(event, ...)
     if event == "PLAYER_REGEN_DISABLED" then
         self:RegisterEvent("PLAYER_REGEN_ENABLED");
+        if addon.IS_LEGACY_ASCENSION then
+            -- The secure state driver clears the actual overrides.  Only reset
+            -- insecure bookkeeping here; protected APIs are forbidden now.
+            self.legacyBindingActive = nil;
+            self:UpdateLegacyConfirmHotkey(nil);
+            return
+        end
         self:UpdateParentForCombat(true);
         --self:SetPropagateKeyboardInput(true);
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if addon.IS_LEGACY_ASCENSION then
+            self:RefreshLegacyBindings();
+            return
+        end
         if self:IsVisible() then
             self:UpdateParentForCombat();
         end
     elseif event == "UPDATE_BINDINGS" then
-        self.bindingDirty = true;
+        if addon.IS_LEGACY_ASCENSION and self:IsVisible() then
+            BindingUtil:LoadBindings();
+            self:RefreshLegacyBindings();
+        else
+            self.bindingDirty = true;
+        end
+    elseif addon.IS_LEGACY_ASCENSION and event == "QUEST_FINISHED" then
+        self:SuspendLegacyBindings();
+    elseif addon.IS_LEGACY_ASCENSION and event == "PLAYER_LEAVING_WORLD" then
+        self:SuspendLegacyBindings();
     end
 end
 KeyboardControl:SetScript("OnEvent", KeyboardControl.OnEvent);
 
 function KeyboardControl:OnHide()
+    if addon.IS_LEGACY_ASCENSION then
+        self.legacyBindingSuspended = true;
+    end
     self:StopListeningKeys();
     self:UnregisterEvent("PLAYER_REGEN_DISABLED");
     self:UnregisterEvent("PLAYER_REGEN_ENABLED");
+    if addon.IS_LEGACY_ASCENSION then
+        self:UnregisterEvent("QUEST_FINISHED");
+        self:UnregisterEvent("PLAYER_LEAVING_WORLD");
+    end
     self:ResetKeyActions();
     self:StopRepeatingAction();
 end
@@ -143,9 +474,19 @@ KeyboardControl:SetScript("OnHide", KeyboardControl.OnHide);
 function KeyboardControl:OnShow()
     self:RegisterEvent("PLAYER_REGEN_DISABLED");
 
+    if addon.IS_LEGACY_ASCENSION then
+        self:RegisterEvent("PLAYER_REGEN_ENABLED");
+        self:RegisterEvent("QUEST_FINISHED");
+        self:RegisterEvent("PLAYER_LEAVING_WORLD");
+    end
+
     if self.bindingDirty then
         self.bindingDirty = nil;
         BindingUtil:LoadBindings();
+    end
+
+    if addon.IS_LEGACY_ASCENSION then
+        self:RefreshLegacyBindings();
     end
 end
 
@@ -272,8 +613,7 @@ function KeyboardControl:SetParentFrame(frame, inCombat)
     -- OnKeyDown listener can block spell and action-bar bindings. Keep the
     -- dialogue fully mouse-operable and never take keyboard focus on legacy.
     if addon.IS_LEGACY_ASCENSION then
-        self:UnregisterEvent("PLAYER_REGEN_DISABLED");
-        self:UnregisterEvent("PLAYER_REGEN_ENABLED");
+        self:RefreshLegacyBindings();
         return
     end
 
@@ -487,8 +827,20 @@ do  --Settings
 
     local function Settings_UseCustomBindings(dbValue)
         USE_CUSTOM_BINDINGS = dbValue == true;
+        if addon.IS_LEGACY_ASCENSION then
+            KeyboardControl:RefreshLegacyBindings();
+        end
     end
     addon.CallbackRegistry:Register("SettingChanged.UseCustomBindings", Settings_UseCustomBindings);
+
+    if addon.IS_LEGACY_ASCENSION then
+        addon.CallbackRegistry:Register("CustomBindingChanged", function()
+            KeyboardControl:RefreshLegacyBindings();
+        end);
+        addon.CallbackRegistry:Register("DialogueUI.LegacyRelease", function()
+            KeyboardControl:SuspendLegacyBindings();
+        end);
+    end
 end
 
 

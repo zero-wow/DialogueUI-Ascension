@@ -15,7 +15,7 @@ do  --DUIGenericTitledFrameMixin
         local innerStart = 80/512;
         local innerEnd = 432/512;
         local pieces = {};
-        local controller = {pieces = pieces};
+        local controller = {pieces = pieces, parent = parent};
 
         local function CreatePiece(left, right, top, bottom)
             local texture = parent:CreateTexture(nil, "BACKGROUND");
@@ -89,6 +89,7 @@ do  --DUIGenericTitledFrameMixin
         controller:SetOffset(16);
         return controller
     end
+    addon.CreateLegacyNineSlice = CreateLegacyNineSlice;
 
     function DUIGenericTitledFrameMixin:UpdatePixel()
         if API.UpdateTextureSliceScale then

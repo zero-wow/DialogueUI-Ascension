@@ -282,6 +282,8 @@ do
     local DEFAULT_FONT_SIZE = 0;
     local FONT_SIZE_ID = 1;
     local FONT_DATA_ID = FONT_SIZE_ID + 1;
+    local CUSTOM_FONT_SIZE;
+    local CURRENT_FONT_PROFILE;
 
     local FONT_SIZE_INDEX = {
         [0] = 10,
@@ -291,27 +293,65 @@ do
     };
 
     local MOBILE_DEVICE_FONT_SIZE_ID = 4;
+    local CUSTOM_FONT_SIZE_ID = 5;
 
     for index, size in ipairs(HEIGHT_1) do
         FONT_SIZE_INDEX[index - 1] = size;
     end
 
-    function FontUtil:SetFontSizeByID(id)
-        if (GetDBValue("MobileDeviceMode") == true) and FONT_SIZE_INDEX[MOBILE_DEVICE_FONT_SIZE_ID] then
-            id = MOBILE_DEVICE_FONT_SIZE_ID;
+    local function GetFontObjectHeight(sizeData)
+        if not CUSTOM_FONT_SIZE then
+            return sizeData[FONT_DATA_ID]
         end
 
-        if not (id and FONT_SIZE_INDEX[id]) then return end;
+        local size = CUSTOM_FONT_SIZE;
+        local fromIndex;
+        local toIndex;
+        local amount;
+        if size <= 12 then
+            fromIndex, toIndex, amount = 1, 2, (size - 10) / 2;
+        elseif size <= 14 then
+            fromIndex, toIndex, amount = 2, 3, (size - 12) / 2;
+        elseif size <= 16 then
+            fromIndex, toIndex, amount = 3, 4, (size - 14) / 2;
+        else
+            fromIndex, toIndex, amount = 4, 5, (size - 16) / 8;
+        end
+
+        local height = sizeData[fromIndex] + (sizeData[toIndex] - sizeData[fromIndex]) * amount;
+        return math.max(1, math.floor(height + 0.5))
+    end
+
+    function FontUtil:SetFontSizeByID(id)
+        local fontSize;
+        local profile;
+        if (GetDBValue("MobileDeviceMode") == true) and FONT_SIZE_INDEX[MOBILE_DEVICE_FONT_SIZE_ID] then
+            id = MOBILE_DEVICE_FONT_SIZE_ID;
+            fontSize = FONT_SIZE_INDEX[id];
+            FONT_DATA_ID = id + 1;
+            CUSTOM_FONT_SIZE = nil;
+            profile = "mobile";
+        elseif id == CUSTOM_FONT_SIZE_ID then
+            fontSize = tonumber(GetDBValue("CustomFontSize")) or 18;
+            fontSize = math.max(10, math.min(24, math.floor(fontSize + 0.5)));
+            FONT_DATA_ID = 2;
+            CUSTOM_FONT_SIZE = fontSize;
+            profile = "custom:"..fontSize;
+        elseif id and FONT_SIZE_INDEX[id] then
+            fontSize = FONT_SIZE_INDEX[id];
+            FONT_DATA_ID = id + 1;
+            CUSTOM_FONT_SIZE = nil;
+            profile = "preset:"..id;
+        else
+            return
+        end
 
         FONT_SIZE_ID = id;
-        FONT_DATA_ID = FONT_SIZE_ID + 1;
 
-        if FONT_SIZE_INDEX[id] == DEFAULT_FONT_SIZE then return end;
-
-        local fontSize = FONT_SIZE_INDEX[id];
+        if profile == CURRENT_FONT_PROFILE then return end;
+        CURRENT_FONT_PROFILE = profile;
         DEFAULT_FONT_SIZE = fontSize;
 
-        local k = FONT_DATA_ID;
         local _G = _G;
 
         local textFontFile = self:GetUserFont();
@@ -328,7 +368,7 @@ do
                 fontFile = textFontFile;
             end
 
-            _G[fontName]:SetFont(fontFile, v[k], flags);
+            _G[fontName]:SetFont(fontFile, GetFontObjectHeight(v), flags);
         end
 
         if fontSize >= 16 then
@@ -352,7 +392,6 @@ do
             return
         end
 
-        local k = FONT_DATA_ID;
         local _G = _G;
 
         for fontName, v in pairs(FONT_OBJECT_HEIGHT) do
@@ -367,7 +406,7 @@ do
                 fontFile = textFontFile;
             end
 
-            _G[fontName]:SetFont(fontFile, v[k], flags);
+            _G[fontName]:SetFont(fontFile, GetFontObjectHeight(v), flags);
         end
 
         if GetDBValue("FontText") == "default" then
@@ -425,6 +464,13 @@ do  --Settings Callbacks
         FontUtil:SetFontSizeByID(dbValue);
     end
     addon.CallbackRegistry:Register("SettingChanged.FontSizeBase", Settings_FontSizeBase);
+
+    local function Settings_CustomFontSize()
+        if GetDBValue("FontSizeBase") == 5 then
+            FontUtil:SetFontSizeByID(5);
+        end
+    end
+    addon.CallbackRegistry:Register("SettingChanged.CustomFontSize", Settings_CustomFontSize);
 
     local function Settings_MobileDeviceMode(dbValue, userInput)
         if userInput then

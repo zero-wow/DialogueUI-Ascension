@@ -17,12 +17,15 @@ addon.VERSION_TEXT = VERSION_TEXT;
 local DefaultValues = {
     Theme = 1,
     FrameSize = 2,
+    QuestFrameSizePreset = 2,
     QuestFrameScale = 1,
     SettingsFrameScale = 1,
     FontSizeBase = 1,
+    CustomFontSize = 18,
     FontText = "default",
     FontNumber = "default",
     FrameOrientation = 2,                       --1:Left  2:Right(Default)
+    LockFrames = false,
     -- Hiding UIParent uses protected visibility state on Wrath.  An insecure
     -- addon changing it can taint action buttons (including ElvUI) and other
     -- protected actions, so the legacy port deliberately leaves it enabled.
@@ -122,6 +125,7 @@ local InheritExistingValues = {
     --Newly added systems may copy the the dbValue of similar system: BookUI/DialogueUI frame size, Book/Dialogue voice
     --If the new dbValue doesn't exisit and the existing dbValue isn't the default value, use the new default value
     {"BookUISize", "FrameSize"},
+    {"QuestFrameSizePreset", "FrameSize"},
     {"BookTTSVoice", "TTSVoiceNarrator"},
     {"BookTTSVoice", "TTSVoiceMale"},
     {"BookTTSVoice", "TTSVoiceFemale"},
@@ -152,9 +156,22 @@ local function NormalizeFrameScale(value)
     return value
 end
 
+local function NormalizeCustomFontSize(value)
+    value = tonumber(value) or 18;
+    value = math.floor(value + 0.5);
+    if value < 10 then
+        return 10
+    elseif value > 24 then
+        return 24
+    end
+    return value
+end
+
 local function SetDBValue(dbKey, value, userInput)
     if dbKey == "QuestFrameScale" or dbKey == "SettingsFrameScale" then
         value = NormalizeFrameScale(value);
+    elseif dbKey == "CustomFontSize" then
+        value = NormalizeCustomFontSize(value);
     end
     if addon.IS_LEGACY_ASCENSION then
         -- The build-12340 client has no GamePad input surface and exposes no
@@ -172,6 +189,54 @@ local function SetDBValue(dbKey, value, userInput)
     addon.CallbackRegistry:Trigger("SettingChanged."..dbKey, value, userInput);
 end
 addon.SetDBValue = SetDBValue;
+
+local VALID_FRAME_POINTS = {
+    TOPLEFT = true, TOP = true, TOPRIGHT = true,
+    LEFT = true, CENTER = true, RIGHT = true,
+    BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true,
+};
+
+local function RestoreFramePosition(frame, dbKey)
+    local position = DB and DB[dbKey];
+    if type(position) ~= "table"
+        or not VALID_FRAME_POINTS[position.point]
+        or not VALID_FRAME_POINTS[position.relativePoint]
+        or type(position.x) ~= "number"
+        or type(position.y) ~= "number" then
+        return false
+    end
+
+    frame:ClearAllPoints();
+    frame:SetPoint(position.point, UIParent, position.relativePoint, position.x, position.y);
+    return true
+end
+addon.RestoreFramePosition = RestoreFramePosition;
+
+local function SaveFramePosition(frame, dbKey)
+    if not DB then return end;
+    local point, _, relativePoint, x, y = frame:GetPoint(1);
+    if not VALID_FRAME_POINTS[point] or not VALID_FRAME_POINTS[relativePoint]
+        or type(x) ~= "number" or type(y) ~= "number" then
+        return
+    end
+
+    x = math.max(-8192, math.min(8192, x));
+    y = math.max(-8192, math.min(8192, y));
+    SetDBValue(dbKey, {
+        point = point,
+        relativePoint = relativePoint,
+        x = x,
+        y = y,
+    }, true);
+end
+addon.SaveFramePosition = SaveFramePosition;
+
+local function ClearFramePosition(dbKey)
+    if DB then
+        SetDBValue(dbKey, nil, true);
+    end
+end
+addon.ClearFramePosition = ClearFramePosition;
 
 local function LoadTutorials()
     --Tutorial Flags (nil means haven't shown)
@@ -210,10 +275,12 @@ local function LoadDatabase()
 
     local validNumericValues = {
         Theme = {[1] = true, [2] = true},
-        FrameSize = {[0] = true, [1] = true, [2] = true, [3] = true},
-        FontSizeBase = {[0] = true, [1] = true, [2] = true, [3] = true},
+        FrameSize = {[0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true},
+        QuestFrameSizePreset = {[0] = true, [1] = true, [2] = true, [3] = true, [4] = true},
+        FontSizeBase = {[0] = true, [1] = true, [2] = true, [3] = true, [5] = true},
+        CustomFontSize = {[10] = true, [11] = true, [12] = true, [13] = true, [14] = true, [15] = true, [16] = true, [17] = true, [18] = true, [19] = true, [20] = true, [21] = true, [22] = true, [23] = true, [24] = true},
         FrameOrientation = {[1] = true, [2] = true},
-        BookUISize = {[0] = true, [1] = true, [2] = true, [3] = true},
+        BookUISize = {[0] = true, [1] = true, [2] = true, [3] = true, [4] = true},
         CameraMovement = {[0] = true, [1] = true, [2] = true},
         CameraZoomMultiplier = {[1] = true, [2] = true, [3] = true, [4] = true, [5] = true},
         InputDevice = {[1] = true, [2] = true, [3] = true, [4] = true},
@@ -225,6 +292,19 @@ local function LoadDatabase()
         if not allowed[DB[dbKey]] then
             DB[dbKey] = DefaultValues[dbKey];
         end
+    end
+
+
+    DB.QuestFrameScale = NormalizeFrameScale(DB.QuestFrameScale);
+    DB.SettingsFrameScale = NormalizeFrameScale(DB.SettingsFrameScale);
+    DB.CustomFontSize = NormalizeCustomFontSize(DB.CustomFontSize);
+
+    -- Builds before r26 already persisted Ctrl+wheel scaling but had no
+    -- visible Custom choice.  Preserve the underlying layout preset and label
+    -- that existing fine-tuned scale accurately on upgrade.
+    if addon.IS_LEGACY_ASCENSION and DB.FrameSize ~= 5 and DB.QuestFrameScale ~= 1 then
+        DB.QuestFrameSizePreset = DB.FrameSize;
+        DB.FrameSize = 5;
     end
 
     if addon.IS_LEGACY_ASCENSION then

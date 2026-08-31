@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.25";
+local RUNTIME_BUILD = "1.0.5-d-ascension.26";
 
 local type = type;
 local tostring = tostring;
@@ -109,6 +109,14 @@ local function BuildReport()
             .."; owner="..tostring(parent and parent.GetName and parent:GetName() or parent));
     else
         tinsert(lines, "  Legacy parchment: missing");
+    end
+    local darkFrame = dialogue and dialogue.LegacyDarkFrame;
+    if darkFrame then
+        tinsert(lines, "  Legacy dark frame: pieces="..#(darkFrame.pieces or {})
+            .."; shown="..tostring(darkFrame:IsShown())
+            .."; texture="..tostring(darkFrame.textureFile));
+    else
+        tinsert(lines, "  Legacy dark frame: missing");
     end
     local settingsSlice = settings and settings.BackgroundFrame and settings.BackgroundFrame.LegacyNineSlice;
     if settingsSlice then

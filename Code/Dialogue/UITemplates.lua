@@ -661,7 +661,10 @@ function DUIDialogOptionButtonMixin:SetButtonCloseAutoAcceptQuest()
     --For auto-accepted quest: change the "Decline" button to "OK"
     self.showIcon = false;
     self.id = 0;
-    self.type = "decline";
+    -- Keep this distinct from a real Decline button.  Legacy Confirm may
+    -- safely acknowledge this already-accepted page, but must never activate
+    -- a normal cancel/decline action.
+    self.type = "closeAutoAccepted";
     self.Icon:SetTexture(nil);
     self.onClickFunc = OnClickFunc_CloseQuest;
     self:SetHotkey("PRIMARY");
@@ -977,6 +980,15 @@ function DUIDialogOptionButtonMixin:SetHotkey(hotkey)
             self.HotkeyFrame:ClearKey();
         end
     end
+
+    -- Confirm buttons are often enabled/disabled immediately after their
+    -- hotkey changes (notably when a quest reward is selected).  Refresh on
+    -- the next frame so the legacy override exists only while the final button
+    -- state is both visible and clickable.
+    if addon.IS_LEGACY_ASCENSION and addon.KeyboardControl
+        and not addon.KeyboardControl.updatingLegacyHotkey then
+        addon.KeyboardControl:QueueLegacyBindingRefresh();
+    end
 end
 
 
@@ -1104,7 +1116,9 @@ function DUIDialogHotkeyFrameMixin:SetKey(key)
             if iconData.themed and not self.useDarkTheme then
                 self.Icon:SetTexture(ThemeUtil:GetTextureFile(iconData.file), nil, nil, filterMode);
             else
-                local prefix = "Interface/AddOns/DialogueUI-Ascension/Art/Keys/";
+                local prefix = addon.IS_LEGACY_ASCENSION
+                    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Keys\\"
+                    or "Interface/AddOns/DialogueUI-Ascension/Art/Keys/";
                 self.Icon:SetTexture(prefix..iconData.file, nil, nil, filterMode);
             end
 

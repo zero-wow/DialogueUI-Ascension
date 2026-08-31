@@ -12,7 +12,10 @@ local InCombatLockdown = InCombatLockdown;
 local SetOverrideBindingClick = SetOverrideBindingClick;
 local ClearOverrideBindings = ClearOverrideBindings;
 local CreateFrame = addon.Legacy.CreateFrame or CreateFrame;
+local NativeCreateFrame = addon.Legacy.NativeCreateFrame or CreateFrame;
+local RegisterStateDriver = RegisterStateDriver;
 local IsControlKeyDown = IsControlKeyDown;
+local IsShiftKeyDown = IsShiftKeyDown;
 local type = type;
 
 local GetDBValue = addon.GetDBValue;
@@ -58,11 +61,18 @@ local function Reposition_OnDragStart(self)
         self:OnMouseUp();
     end
 
+    if GetDBValue("LockFrames") and not IsShiftKeyDown() then
+        return
+    end
+    MainFrame.isUserDragging = true;
     MainFrame:StartMoving();
 end
 
 local function Reposition_OnDragStop(self)
+    if not MainFrame.isUserDragging then return end;
+    MainFrame.isUserDragging = nil;
     MainFrame:StopMovingOrSizing();
+    addon.SaveFramePosition(MainFrame, "SettingsFramePosition");
     MainFrame:UpdateScrollFrameBound();
 end
 
@@ -116,6 +126,11 @@ function DUIDialogSettingsMixin:OnShow()
 end
 
 function DUIDialogSettingsMixin:MoveToBestPosition()
+    if addon.RestoreFramePosition(self, "SettingsFramePosition") then
+        self:UpdateScrollFrameBound();
+        return
+    end
+
     if addon.DialogueUI:IsShown() then
         local viewportWidth, viewportHeight = WorldFrame:GetSize(); --height unaffected by screen resolution
         viewportWidth = math.min(viewportWidth, viewportHeight * 16/9);
@@ -134,6 +149,11 @@ function DUIDialogSettingsMixin:MoveToBestPosition()
         self:SetPoint("CENTER", nil, "CENTER", 0, 0);
     end
     self:UpdateScrollFrameBound();
+end
+
+function DUIDialogSettingsMixin:ResetSavedPosition()
+    addon.ClearFramePosition("SettingsFramePosition");
+    self:MoveToBestPosition();
 end
 
 function DUIDialogSettingsMixin:UpdateScrollFrameBound()
@@ -309,6 +329,9 @@ function DUIDialogSettingsMixin:HighlightButton(button)
 end
 
 function DUIDialogSettingsMixin:OnHide()
+    if self.isUserDragging then
+        Reposition_OnDragStop(self);
+    end
     self.focusedObject = nil;
     self.focusedObjectOffsetY = nil;
     self.scrollFrameTop = nil;
@@ -609,6 +632,62 @@ local function OutlineSparklesSupported_Validation()
     return addon.IsToCVersionEqualOrNewerThan(110000)
 end
 
+local CUSTOM_FONT_SIZE_CHOICES = {};
+for size = 10, 24 do
+    CUSTOM_FONT_SIZE_CHOICES[#CUSTOM_FONT_SIZE_CHOICES + 1] = {
+        dbValue = size,
+        valueText = size.." pt",
+    };
+end
+
+local function ValueTextFormatter_CustomFontSize(dropdownButton, dbValue)
+    dropdownButton.ValueText:SetText(tostring(dbValue or 18).." pt");
+end
+
+local function CustomFontSize_MenuButton_OnClick(menuButton)
+    SetDBValue(menuButton.data.dbKey, menuButton.id, true);
+    MainFrame:UpdateOptionButtonByDBKey(menuButton.data.dbKey);
+end
+
+local function CustomFontSize_BuildMenuData(dropdownButton, dbKey)
+    local menuData = {
+        buttons = {},
+        buttonHeight = OPTION_WIDGET_SIZE,
+        buttonWidth = OPTION_WIDGET_SIZE * 4,
+        selectedID = GetDBValue(dbKey),
+        fitWidth = true,
+        autoScaling = true,
+    };
+
+    menuData.selectedIDGetter = function()
+        return GetDBValue(dbKey)
+    end;
+
+    for index, choice in ipairs(CUSTOM_FONT_SIZE_CHOICES) do
+        menuData.buttons[index] = {
+            name = choice.valueText,
+            id = choice.dbValue,
+            onClickFunc = CustomFontSize_MenuButton_OnClick,
+            dbKey = dbKey,
+        };
+    end
+
+    return menuData
+end
+
+local function ResetFramePositions_OnClick()
+    if addon.DialogueUI and addon.DialogueUI.ResetSavedPosition then
+        addon.DialogueUI:ResetSavedPosition();
+    else
+        addon.ClearFramePosition("QuestFramePosition");
+    end
+    if MainFrame and MainFrame.ResetSavedPosition then
+        MainFrame:ResetSavedPosition();
+    else
+        addon.ClearFramePosition("SettingsFramePosition");
+    end
+end
+
 local function HideUISupported_Validation()
     -- UIParent visibility is protected on Wrath and can taint action bars.
     return not addon.IS_LEGACY_ASCENSION
@@ -648,6 +727,8 @@ local Schematic = { --Scheme
                     {dbValue = 1, valueText = L["Size Small"]},
                     {dbValue = 2, valueText = L["Size Medium"]},
                     {dbValue = 3, valueText = L["Size Large"]},
+                    {dbValue = 4, valueText = L["Size Extra Large"]},
+                    {dbValue = 5, valueText = L["Size Custom"]},
                 },
             },
             {type = "ArrowOption", name = L["Font Size"], description = L["Font Size Desc"], tooltip = OptionHasNoEffectDueToMobile, dbKey = "FontSizeBase", realignAfterClicks = true,
@@ -656,8 +737,10 @@ local Schematic = { --Scheme
                     {dbValue = 1, valueText = "12"},
                     {dbValue = 2, valueText = "14"},
                     {dbValue = 3, valueText = "16"},
+                    {dbValue = 5, valueText = L["Size Custom"]},
                 },
             },
+            {type = "DropdownButton", name = L["Custom Font Size"], description = L["Custom Font Size Desc"], dbKey = "CustomFontSize", valueTextFormatter = ValueTextFormatter_CustomFontSize, choices = CUSTOM_FONT_SIZE_CHOICES, menuDataBuilder = CustomFontSize_BuildMenuData, branchLevel = 1, requiredParentValueAnd = {FontSizeBase = 5}},
             SettingsDefinitions.FontOptionData,     --type = "DropdownButton", dbValue = "Font"
             {type = "ArrowOption", name = L["Frame Orientation"], description = L["Frame Orientation Desc"], dbKey = "FrameOrientation",
                 choices = {
@@ -665,6 +748,8 @@ local Schematic = { --Scheme
                     {dbValue = 2, valueText = L["Orientation Right"]},
                 },
             },
+            {type = "Checkbox", name = L["Lock Frames"], description = L["Lock Frames Desc"], dbKey = "LockFrames"},
+            {type = "Custom", name = L["Reset Frame Positions"], description = L["Reset Frame Positions Desc"], icon = "Settings-Reset.tga", onClickFunc = ResetFramePositions_OnClick},
             {type = "Checkbox", name = L["Hide UI"], description = L["Hide UI Desc"], dbKey = "HideUI", validationFunc = HideUISupported_Validation},
             {type = "Checkbox", name = L["Show Chat Window"], tooltip = ChatWindowTooltip, dbKey = "ShowChatWindow", requiredParentValueAnd = {HideUI = true}},
             {type = "Checkbox", name = L["Hide Sparkles"], description = L["Hide Sparkles Desc"], preview = "HideOutlineSparkles.tga", ratio = 2, dbKey = "HideOutlineSparkles", requiredParentValueAnd = {HideUI = true}, validationFunc = OutlineSparklesSupported_Validation},
@@ -688,6 +773,7 @@ local Schematic = { --Scheme
                     {dbValue = 1, valueText = L["Size Small"]},
                     {dbValue = 2, valueText = L["Size Medium"]},
                     {dbValue = 3, valueText = L["Size Large"]},
+                    {dbValue = 4, valueText = L["Size Extra Large"]},
                 },
             },
             {type = "Checkbox", name = L["BookUI Keep UI Open"], description = L["BookUI Keep UI Open Desc"], dbKey = "BookKeepUIOpen", requireSameParentValue = true},
@@ -864,12 +950,12 @@ local Schematic = { --Scheme
 };
 
 if addon.IS_LEGACY_ASCENSION then
-    -- Reflect actual build-12340 capabilities in the settings UI. Keyboard and
-    -- GamePad scripts, safe unhandled-key propagation, and restorable camera
-    -- zoom do not exist on this client. Mouse interaction remains supported.
+    -- Reflect actual build-12340 capabilities in the settings UI. The scoped
+    -- footer Confirm override is supported, but raw/custom key capture,
+    -- GamePad scripts, unhandled-key propagation, and restorable camera zoom
+    -- are not.
     local unavailableKeyboardOptions = {
         UseCustomBindings = true,
-        PrimaryControlKey = true,
         CycleRewardHotkeyEnabled = true,
         DisableHotkeyForTeleport = true,
         ScrollDownThenAcceptQuest = true,
@@ -2379,7 +2465,10 @@ end
 -- Retail listens for F1 through SetPropagateKeyboardInput, which Wrath does
 -- not provide.  Use one narrowly scoped override binding instead of enabling
 -- raw keyboard capture (which can swallow unrelated action-bar keys).
-if addon.IS_LEGACY_ASCENSION and type(SetOverrideBindingClick) == "function" and type(ClearOverrideBindings) == "function" then
+if addon.IS_LEGACY_ASCENSION
+    and type(SetOverrideBindingClick) == "function"
+    and type(ClearOverrideBindings) == "function"
+    and type(RegisterStateDriver) == "function" then
     local settingsHotkeyButton = CreateFrame("Button", "DUIDialogLegacySettingsHotkeyButton", UIParent);
     settingsHotkeyButton:Hide();
     settingsHotkeyButton:RegisterForClicks("LeftButtonUp");
@@ -2389,45 +2478,64 @@ if addon.IS_LEGACY_ASCENSION and type(SetOverrideBindingClick) == "function" and
         end
     end);
 
-    local settingsHotkey = CreateFrame("Frame");
-    addon.LegacySettingsHotkey = settingsHotkey;
-
-    function settingsHotkey:ApplyState()
-        if InCombatLockdown() then
-            self:RegisterEvent("PLAYER_REGEN_ENABLED");
-            return
-        end
-
-        if self.shouldEnable then
-            if not self.bindingActive then
-                local success = pcall(SetOverrideBindingClick, self, true, "F1", settingsHotkeyButton:GetName(), "LeftButton");
-                self.bindingActive = success or nil;
+    local ownerCreated, settingsHotkey = pcall(
+        NativeCreateFrame,
+        "Frame",
+        "DUIDialogLegacySettingsBindingOwner",
+        UIParent,
+        "SecureHandlerStateTemplate"
+    );
+    local driverReady = ownerCreated and settingsHotkey and pcall(function()
+        settingsHotkey:SetAttribute("_onstate-combat", [[
+            if newstate == "combat" then
+                self:ClearBinding("F1")
             end
-        elseif self.bindingActive then
-            local success = pcall(ClearOverrideBindings, self);
-            if success then
-                self.bindingActive = nil;
-            end
-        end
-
-        if (self.shouldEnable and self.bindingActive) or ((not self.shouldEnable) and (not self.bindingActive)) then
-            self:UnregisterEvent("PLAYER_REGEN_ENABLED");
-        end
-    end
-
-    function settingsHotkey:Enable()
-        self.shouldEnable = true;
-        self:ApplyState();
-    end
-
-    function settingsHotkey:Disable()
-        self.shouldEnable = nil;
-        self:ApplyState();
-    end
-
-    settingsHotkey:SetScript("OnEvent", function(self)
-        self:ApplyState();
+        ]]);
+        RegisterStateDriver(settingsHotkey, "combat", "[combat] combat; nocombat");
     end);
+
+    if driverReady then
+        addon.LegacySettingsHotkey = settingsHotkey;
+
+        function settingsHotkey:ApplyState()
+            if InCombatLockdown() then
+                return
+            end
+
+            if self.shouldEnable then
+                if not self.bindingActive then
+                    local success = pcall(SetOverrideBindingClick, self, true, "F1", settingsHotkeyButton:GetName(), "LeftButton");
+                    self.bindingActive = success or nil;
+                end
+            elseif self.bindingActive then
+                local success = pcall(ClearOverrideBindings, self);
+                if success then
+                    self.bindingActive = nil;
+                end
+            end
+        end
+
+        function settingsHotkey:Enable()
+            self.shouldEnable = true;
+            self:ApplyState();
+        end
+
+        function settingsHotkey:Disable()
+            self.shouldEnable = nil;
+            self:ApplyState();
+        end
+
+        settingsHotkey:RegisterEvent("PLAYER_REGEN_DISABLED");
+        settingsHotkey:RegisterEvent("PLAYER_REGEN_ENABLED");
+        settingsHotkey:SetScript("OnEvent", function(self, event)
+            if event == "PLAYER_REGEN_DISABLED" then
+                -- The secure state driver has already removed F1.
+                self.bindingActive = nil;
+            else
+                self:ApplyState();
+            end
+        end);
+    end
 end
 
 
@@ -2442,28 +2550,23 @@ do
 
         local widthMultiplier;
 
-        if fontSizeID <= 1 then
+        if baseFontSize <= 12 then
             NUM_VISIBLE_OPTIONS = 10.5;
             widthMultiplier = 12;
             ARROWOTPION_WIDTH_RATIO = 7;
             ARROWOTPION_BAR_HEIGHT = 5;
-        elseif fontSizeID == 2 then
+        elseif baseFontSize <= 14 then
             NUM_VISIBLE_OPTIONS = 9.5;
             widthMultiplier = 11;
             ARROWOTPION_WIDTH_RATIO = 7;
             ARROWOTPION_BAR_HEIGHT = 6;
-        elseif fontSizeID == 3 then
+        elseif baseFontSize <= 20 then
             NUM_VISIBLE_OPTIONS = 8.5;
-            widthMultiplier = 10;
-            ARROWOTPION_WIDTH_RATIO = 6;
-            ARROWOTPION_BAR_HEIGHT = 6;
-        elseif fontSizeID == 4 then   --For MobileDeviceMode
-            NUM_VISIBLE_OPTIONS = 7.5;
             widthMultiplier = 10;
             ARROWOTPION_WIDTH_RATIO = 6;
             ARROWOTPION_BAR_HEIGHT = 6;
         else
-            NUM_VISIBLE_OPTIONS = 8.5;
+            NUM_VISIBLE_OPTIONS = 7.5;
             widthMultiplier = 10;
             ARROWOTPION_WIDTH_RATIO = 6;
             ARROWOTPION_BAR_HEIGHT = 6;
@@ -2488,11 +2591,11 @@ do
             f.arrowOptionPool:ProcessAllObjects(ModifyArrowOption);
         end
 
-        if f.dropdownButtonPoolPool then
+        if f.dropdownButtonPool then
             local function ModifyDropdownButton(widget)
                 widget:SetWidgetHeight(OPTION_WIDGET_SIZE);
             end
-            f.dropdownButtonPoolPool:ProcessAllObjects(ModifyDropdownButton);
+            f.dropdownButtonPool:ProcessAllObjects(ModifyDropdownButton);
         end
 
         if f.hotkeyFramePool then

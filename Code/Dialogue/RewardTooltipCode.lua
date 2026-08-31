@@ -8,6 +8,7 @@ local TooltipFrame = addon.SharedTooltip;
 
 local GetItemCount = C_Item.GetItemCount;
 local IsQuestRequiredItem = API.IsQuestRequiredItem;
+local GetQuestItemLink = GetQuestItemLink;
 
 local RewardTooltipCode = {};
 addon.RewardTooltipCode = RewardTooltipCode;
@@ -23,7 +24,19 @@ RewardTooltipCode.tooltipNames = {
     "GarrisonFollowerTooltip",
 };
 
+local function AnchorCustomTooltip(tooltip, itemButton)
+    tooltip:SetOwner(itemButton, "ANCHOR_NONE");
+    local relativeTo = itemButton.Icon or itemButton;
+    tooltip:SetPoint("BOTTOMLEFT", relativeTo, "TOPRIGHT", 0, 2);
+end
+
 local function ShowLegacyRewardTooltip(tooltip, itemButton, fallbackTitle)
+    -- ProcessInfo hides the custom tooltip (and clears its anchor) when a
+    -- modern tooltip-data getter is unavailable.  Always rebuild both the
+    -- contents and anchor before displaying this legacy fallback.
+    tooltip:Hide();
+    AnchorCustomTooltip(tooltip, itemButton);
+
     local title = fallbackTitle;
     if itemButton.Name and itemButton.Name.GetText then
         local displayedName = itemButton.Name:GetText();
@@ -159,13 +172,30 @@ end
 
 local function CustomTooltip_OnEnter(self)
     local tooltip = TooltipFrame;
-    tooltip:SetOwner(self, "ANCHOR_NONE");
-    tooltip:SetPoint("BOTTOMLEFT", self.Icon, "TOPRIGHT", 0, 2);
+    AnchorCustomTooltip(tooltip, self);
     tooltip.itemID = nil;
 
     if self.objectType == "item" then
         local showCollectionText = true;
-        tooltip:SetQuestItem(self.type, self.index, showCollectionText);
+        local shown = tooltip:SetQuestItem(self.type, self.index, showCollectionText);
+
+        if addon.IS_LEGACY_ASCENSION and not shown then
+            -- Some 3.3.5-derived clients expose only a partial
+            -- C_TooltipInfo.  A quest-item link uses the stable native
+            -- GameTooltip path and retains the full item tooltip.
+            local hyperlink = GetQuestItemLink and GetQuestItemLink(self.type, self.index);
+            if hyperlink then
+                AnchorCustomTooltip(tooltip, self);
+                shown = tooltip:SetHyperlink(hyperlink);
+            elseif self.itemID then
+                AnchorCustomTooltip(tooltip, self);
+                shown = tooltip:SetItemByID(self.itemID);
+            end
+
+            if not shown then
+                ShowLegacyRewardTooltip(tooltip, self, REWARD or "Reward");
+            end
+        end
 
         if self.type == "required" and self.itemID and (not IsQuestRequiredItem(self.itemID)) then
             local numInBags = GetItemCount(self.itemID);

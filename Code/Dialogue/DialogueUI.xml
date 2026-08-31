@@ -391,7 +391,7 @@
         </Layers>
     </Frame>
 
-    <Frame name="DUIQuestFrame" hidden="true" frameStrata="DIALOG" toplevel="true">
+    <Frame name="DUIQuestFrame" hidden="true" frameStrata="DIALOG" toplevel="true" enableMouse="true" clampedToScreen="true" movable="true">
         <Size x="300" y="400"/>
         <Frames>
             <Frame parentKey="BackgroundFrame" setAllPoints="true">

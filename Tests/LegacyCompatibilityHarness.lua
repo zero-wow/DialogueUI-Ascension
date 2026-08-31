@@ -630,6 +630,9 @@ function GetBuildInfo() return "3.3.5", "12340", "Sep 29 2010", 30300 end
 local legacyDatabase = {
     Theme = "corrupt",
     FrameSize = 99,
+    QuestFrameScale = "corrupt",
+    SettingsFrameScale = 2,
+    CustomFontSize = 99,
     FontText = 42,
     RightClickToCloseUI = "corrupt",
     InputDevice = 4,
@@ -658,6 +661,10 @@ Assert(DialogueUI_DB == legacyDatabase, "database loader replaced the SavedVaria
 Assert(type(DialogueUI_Saves) == "table", "secondary SavedVariables table was not initialized")
 Assert(DialogueUI_DB.Theme == 1, "wrong-type Theme was not restored to its default")
 Assert(DialogueUI_DB.FrameSize == 2, "out-of-range FrameSize was not restored to its default")
+Assert(DialogueUI_DB.QuestFrameSizePreset == 2, "quest frame preset was not restored to its default")
+Assert(DialogueUI_DB.QuestFrameScale == 1, "wrong-type quest scale was not restored to its default")
+Assert(DialogueUI_DB.SettingsFrameScale == 1.5, "settings scale was not normalized to its upper bound")
+Assert(DialogueUI_DB.CustomFontSize == 18, "out-of-range custom font size was not restored to its default")
 Assert(DialogueUI_DB.FontText == "default", "wrong-type FontText was not restored to its default")
 Assert(DialogueUI_DB.RightClickToCloseUI == true, "wrong-type boolean was not restored to its default")
 Assert(DialogueUI_DB.InputDevice == 1, "legacy database retained an unsupported input device")
@@ -672,6 +679,10 @@ Assert(DialogueUI_DB.CameraMovement == 0, "SetDBValue enabled camera movement wi
 Assert(DialogueUI_DB.HideUI == false, "SetDBValue enabled protected UIParent hiding")
 addon.SetDBValue("Theme", 2, true)
 Assert(DialogueUI_DB.Theme == 2, "SetDBValue rejected an ordinary setting")
+addon.SetDBValue("FrameSize", 5, true)
+addon.SetDBValue("QuestFrameSizePreset", 4, true)
+Assert(DialogueUI_DB.FrameSize == 5, "custom quest frame size was rejected")
+Assert(DialogueUI_DB.QuestFrameSizePreset == 4, "X-Large quest frame preset was rejected")
 
 local sawAddonLoaded
 local sawThemeChange
@@ -684,5 +695,52 @@ for _, callback in ipairs(callbackEvents) do
 end
 Assert(sawAddonLoaded, "database loader did not publish ADDON_LOADED")
 Assert(sawThemeChange, "SetDBValue did not publish the ordinary setting change")
+
+-- Re-run the isolated loader to exercise persistence and the r26 migration,
+-- rather than only testing SetDBValue after validation has already finished.
+local function LoadDatabaseFixture(database)
+    DialogueUI_DB = database
+    DialogueUI_Saves = nil
+    local frameStart = #frames + 1
+    assert(loadfile(addonRoot.."\\Initialization.lua"))("DialogueUI-Ascension", addon)
+    for index = frameStart, #frames do
+        local frame = frames[index]
+        if frame.events.ADDON_LOADED and frame.events.PLAYER_ENTERING_WORLD then
+            frame.scripts.OnEvent(frame, "ADDON_LOADED", "DialogueUI-Ascension")
+            return
+        end
+    end
+    error("Initialization.lua fixture event frame was not created")
+end
+
+local persistedCustomDatabase = {
+    FrameSize = 5,
+    QuestFrameSizePreset = 4,
+    QuestFrameScale = 1.15,
+    SettingsFrameScale = 1.3,
+    FontSizeBase = 5,
+    CustomFontSize = 22,
+    QuestFramePosition = {point = "CENTER", relativePoint = "CENTER", x = 120, y = -80},
+    SettingsFramePosition = {point = "TOPLEFT", relativePoint = "TOPLEFT", x = 30, y = -40},
+}
+LoadDatabaseFixture(persistedCustomDatabase)
+Assert(DialogueUI_DB == persistedCustomDatabase, "custom settings fixture was replaced")
+Assert(DialogueUI_DB.FrameSize == 5 and DialogueUI_DB.QuestFrameSizePreset == 4,
+    "custom/X-Large quest frame settings did not survive reload")
+Assert(DialogueUI_DB.QuestFrameScale == 1.15 and DialogueUI_DB.SettingsFrameScale == 1.3,
+    "per-panel scales did not survive reload")
+Assert(DialogueUI_DB.FontSizeBase == 5 and DialogueUI_DB.CustomFontSize == 22,
+    "custom font profile did not survive reload")
+Assert(DialogueUI_DB.QuestFramePosition.x == 120 and DialogueUI_DB.SettingsFramePosition.y == -40,
+    "saved frame positions did not survive reload")
+
+local upgradeDatabase = {
+    FrameSize = 3,
+    QuestFrameScale = 1.2,
+}
+LoadDatabaseFixture(upgradeDatabase)
+Assert(DialogueUI_DB.FrameSize == 5 and DialogueUI_DB.QuestFrameSizePreset == 3,
+    "existing Ctrl+wheel scale was not migrated to the Custom frame profile")
+Assert(DialogueUI_DB.QuestFrameScale == 1.2, "existing Ctrl+wheel scale changed during migration")
 
 print("LegacyCompatibilityHarness (securecallfunction="..secureCallMode.."): PASS")
