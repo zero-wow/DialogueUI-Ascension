@@ -425,6 +425,12 @@ function DUIDialogBaseMixin:OnLoad()
 
     if addon.IS_LEGACY_ASCENSION then
         self.LegacyParchment = CreateLegacyParchment(self.BackgroundFrame);
+        -- BackgroundFrame inherits the root's level on 3.3.5.  Its own child
+        -- textures can therefore end up beneath the world unless we place the
+        -- legacy slice immediately below the visible FrontFrame content.
+        self.LegacyParchment:SetFrameLevel(self.FrontFrame:GetFrameLevel() - 1);
+        self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("LegacyPanel.tga"));
+        self.LegacyParchment:Show();
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end
