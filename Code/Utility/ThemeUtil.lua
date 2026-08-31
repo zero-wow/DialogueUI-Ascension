@@ -9,10 +9,6 @@ local unpack = unpack;
 
 local TEXTURE_PATH;
 local THEME_ID;
-local ART_ROOT = addon.IS_LEGACY_ASCENSION
-    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\"
-    or "Interface/AddOns/DialogueUI-Ascension/Art/";
-local PATH_SEPARATOR = addon.IS_LEGACY_ASCENSION and "\\" or "/";
 
 
 local function AdjustRedText(text)
@@ -98,12 +94,12 @@ function ThemeUtil:SetThemeByID(themeID)
 
     if themeID == 2 then    --Dark
         colorIndex = 2;
-        TEXTURE_PATH = ART_ROOT.."Theme_Dark"..PATH_SEPARATOR;
+        TEXTURE_PATH = "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Dark/";
         AdjustTextColor = AdjustBlueText;
     else
         themeID = 1;
         colorIndex = 1;
-        TEXTURE_PATH = ART_ROOT.."Theme_Brown"..PATH_SEPARATOR;
+        TEXTURE_PATH = "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Brown/";
         AdjustTextColor = AdjustRedText;
     end
 

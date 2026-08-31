@@ -451,8 +451,15 @@ function DUIDialogBaseMixin:OnLoad()
         -- Root BACKGROUND regions are known to render correctly on this client
         -- (the earlier solid diagnostic backdrop used this exact owner).
         self.LegacyParchment = CreateLegacyParchment(self);
-        self.LegacyParchment:SetParchmentTexture(ThemeUtil:GetTextureFile("LegacyPanel.tga"));
-        self.LegacyParchment:Show();
+        self.LegacyParchment:Hide();
+
+        -- Native TGA loading has produced client Error #132 crashes on this
+        -- customized 3.3.5 build.  Keep a file-free color backdrop active
+        -- until a renderer-safe asset format is proven outside live gameplay.
+        local safeBackdrop = self:CreateTexture(nil, "BACKGROUND");
+        safeBackdrop:SetAllPoints(self);
+        safeBackdrop:SetTexture(0.76, 0.58, 0.33, 0.98);
+        self.LegacySafeBackdrop = safeBackdrop;
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end
@@ -662,8 +669,15 @@ function DUIDialogBaseMixin:LoadTheme()
     local themeID = ThemeUtil:GetThemeID();
 
     if self.LegacyParchment then
-        self.LegacyParchment:SetParchmentTexture(prefix.."LegacyPanel.tga");
-        self.LegacyParchment:Show();
+        self.LegacyParchment:Hide();
+        if self.LegacySafeBackdrop then
+            if themeID == 2 then
+                self.LegacySafeBackdrop:SetTexture(0.07, 0.07, 0.08, 0.98);
+            else
+                self.LegacySafeBackdrop:SetTexture(0.76, 0.58, 0.33, 0.98);
+            end
+            self.LegacySafeBackdrop:Show();
+        end
         for _, piece in ipairs(self.Parchments) do
             piece:Hide();
         end

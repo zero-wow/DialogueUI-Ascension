@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.18";
+local RUNTIME_BUILD = "1.0.5-d-ascension.19";
 
 local type = type;
 local tostring = tostring;
@@ -108,6 +108,8 @@ local function BuildReport()
     else
         tinsert(lines, "  Legacy parchment: missing");
     end
+    tinsert(lines, "  Safe color backdrop="..tostring(dialogue and dialogue.LegacySafeBackdrop
+        and dialogue.LegacySafeBackdrop:IsShown() or false));
     if state then
         tinsert(lines, "  Takeover active="..tostring(state.takeoverActive)
             .."; external handler="..tostring(state.handledExternally));
