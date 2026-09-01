@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.32";
+local RUNTIME_BUILD = "1.0.5-d-ascension.33";
 
 local type = type;
 local tostring = tostring;

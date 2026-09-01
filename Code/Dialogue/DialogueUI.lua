@@ -1039,6 +1039,7 @@ function DUIDialogBaseMixin:UseQuestLayout(state)
     elseif self.questLayout ~= false or forceUpdate then
         self.questLayout = false;
         self.questID = nil;
+        self.questTitle = nil;
         self.questIsFromGossip = nil;
         self.scrollViewHeight = self.scrollFrameBaseHeight;
         --self.ScrollFrame:SetPoint("TOPLEFT", self, "TOPLEFT", PADDING_H, -PADDING_TOP);
@@ -1057,6 +1058,7 @@ end
 
 function DUIDialogBaseMixin:UpdateQuestTitle(method)
     local text = GetQuestTitle();
+    self.questTitle = text;
 
     local headerFrame = self.FrontFrame.Header;
     local title = headerFrame.Title;
@@ -1796,11 +1798,35 @@ function DUIDialogBaseMixin:HandleGossip()
     return true
 end
 
+function DUIDialogBaseMixin:DismissAcceptedQuestDetail()
+    -- QUEST_ACCEPTED is the authoritative signal for auto-accept addons on
+    -- legacy clients.  Hide only our stale offer; do not close the underlying
+    -- quest/gossip interaction because the server may already be opening the
+    -- NPC's next gossip page.
+    self.acknowledgeAutoAcceptQuest = nil;
+    self.interactionIsContinuing = true;
+    self:Hide();
+end
+
 function DUIDialogBaseMixin:HandleQuestDetail(playFadeIn)
     local questID = GetQuestID();
     if GossipDataProvider:ShouldAutoAcceptQuest(questID) then
         if not API.IsPlayerOnQuest(questID) then
             self:ScrollDownOrAcceptQuest(true);
+        end
+        return false;
+    end
+
+    -- An external auto-accept owner may run before DialogueUI receives the
+    -- same QUEST_DETAIL.  Do not construct an already-stale Accepted / OK
+    -- page when the offered quest is on the log by the time we render it.
+    -- Do not acknowledge here: the legacy fallback for that Retail API is a
+    -- second AcceptQuest(), and IsPlayerOnQuest proves acceptance completed.
+    if addon.IS_LEGACY_ASCENSION and questID and questID ~= 0 and API.IsPlayerOnQuest(questID) then
+        if self:IsShown() then
+            self:DismissAcceptedQuestDetail();
+        else
+            self.acknowledgeAutoAcceptQuest = nil;
         end
         return false;
     end
@@ -1913,23 +1939,107 @@ end
 function DUIDialogBaseMixin:HandleQuestAccepted(questID, classicQuestID)
     --QUEST_ACCEPTED (In Classic) questLogIndex, questID
     if self.handler == "HandleQuestDetail" then
-        local currentQuestID = GetQuestID();
-        if classicQuestID then
-            questID = classicQuestID;
-        elseif addon.IS_LEGACY_ASCENSION and questID then
+        local currentQuestID = tonumber(self.questID);
+        local currentQuestTitle = self.questTitle;
+        local currentQuestIDSynthetic = addon.IS_LEGACY_ASCENSION
+            and currentQuestID and currentQuestID >= 1500000000;
+        local questLogIndex = tonumber(questID);
+        local acceptedQuestID = tonumber(classicQuestID);
+        local acceptedQuestTitle;
+        local questInfo;
+        if acceptedQuestID and acceptedQuestID <= 0 then
+            acceptedQuestID = nil;
+        end
+
+        if acceptedQuestID and C_QuestLog.GetLogIndexForQuestID then
+            local acceptedLogIndex = C_QuestLog.GetLogIndexForQuestID(acceptedQuestID);
+            if acceptedLogIndex then
+                questInfo = C_QuestLog.GetInfo(acceptedLogIndex);
+            end
+        elseif addon.IS_LEGACY_ASCENSION and questLogIndex then
             -- 3.3.5 supplies only questLogIndex. Resolve it before comparing
             -- against the quest currently shown by the dialog.
-            local questInfo = C_QuestLog.GetInfo(questID);
+            questInfo = C_QuestLog.GetInfo(questLogIndex);
             if questInfo and questInfo.questID then
-                questID = questInfo.questID;
+                acceptedQuestID = tonumber(questInfo.questID);
+            else
+                local directLogIndex = C_QuestLog.GetLogIndexForQuestID
+                    and C_QuestLog.GetLogIndexForQuestID(questLogIndex);
+                if directLogIndex then
+                    -- Some private servers send a sole questID rather than a
+                    -- quest-log index even though the event is otherwise 3.3.5.
+                    acceptedQuestID = questLogIndex;
+                    questInfo = C_QuestLog.GetInfo(directLogIndex);
+                elseif questLogIndex == currentQuestID then
+                    -- Some private servers send a sole questID instead of the
+                    -- documented legacy quest-log index.
+                    acceptedQuestID = questLogIndex;
+                end
             end
+        elseif not acceptedQuestID then
+            acceptedQuestID = questLogIndex;
         end
-        if (currentQuestID and currentQuestID ~= 0) and (questID and questID == currentQuestID) then
-            local AcceptButton = self:AcquireAcceptButton(true);
-            local ExitButton = self:AcquireExitButton();
-            AcceptButton:SetButtonAlreadyOnQuest();
-            ExitButton:SetButtonCloseAutoAcceptQuest();
-            KeyboardControl:SetAction("Confirm", ExitButton, true);
+
+        if questInfo then
+            acceptedQuestTitle = questInfo.title;
+        elseif acceptedQuestID and C_QuestLog.GetTitleForQuestID then
+            acceptedQuestTitle = C_QuestLog.GetTitleForQuestID(acceptedQuestID);
+        end
+
+        local acceptedCurrentDetail = currentQuestID and currentQuestID ~= 0
+            and acceptedQuestID == currentQuestID;
+        if not acceptedCurrentDetail and currentQuestIDSynthetic
+            and currentQuestTitle and currentQuestTitle ~= ""
+            and acceptedQuestTitle and acceptedQuestTitle ~= "" then
+            -- Available quests on stock 3.3.5 do not expose a questID before
+            -- selection, so the rendered ID can be synthetic.  The accepted
+            -- log entry's exact title is the safe bridge for that case.
+            acceptedCurrentDetail = acceptedQuestTitle == currentQuestTitle;
+        end
+
+        if acceptedCurrentDetail then
+            if addon.IS_LEGACY_ASCENSION then
+                self:DismissAcceptedQuestDetail();
+            else
+                local AcceptButton = self:AcquireAcceptButton(true);
+                local ExitButton = self:AcquireExitButton();
+                AcceptButton:SetButtonAlreadyOnQuest();
+                ExitButton:SetButtonCloseAutoAcceptQuest();
+                KeyboardControl:SetAction("Confirm", ExitButton, true);
+            end
+        elseif addon.IS_LEGACY_ASCENSION and currentQuestID and currentQuestID ~= 0 then
+            -- A few private-server builds update the quest log just after
+            -- QUEST_ACCEPTED.  Retry once without ever dismissing a newer page.
+            local expectedQuestID = currentQuestID;
+            local expectedQuestTitle = currentQuestTitle;
+            After(0, function()
+                if not self:IsShown()
+                    or self.handler ~= "HandleQuestDetail"
+                    or self.questID ~= expectedQuestID
+                    or self.questTitle ~= expectedQuestTitle then
+                    return
+                end
+
+                local delayedInfo = questLogIndex and C_QuestLog.GetInfo(questLogIndex);
+                local directLogIndex;
+                if not delayedInfo and not acceptedQuestID and questLogIndex
+                    and C_QuestLog.GetLogIndexForQuestID then
+                    directLogIndex = C_QuestLog.GetLogIndexForQuestID(questLogIndex);
+                    delayedInfo = directLogIndex and C_QuestLog.GetInfo(directLogIndex);
+                end
+                local delayedQuestID = acceptedQuestID
+                    or (directLogIndex and questLogIndex)
+                    or (delayedInfo and tonumber(delayedInfo.questID));
+                local acceptedTitle = delayedInfo and delayedInfo.title
+                    or (delayedQuestID and C_QuestLog.GetTitleForQuestID
+                        and C_QuestLog.GetTitleForQuestID(delayedQuestID));
+                if delayedQuestID == expectedQuestID
+                    or API.IsPlayerOnQuest(expectedQuestID)
+                    or (currentQuestIDSynthetic and expectedQuestTitle
+                        and acceptedTitle == expectedQuestTitle) then
+                    self:DismissAcceptedQuestDetail();
+                end
+            end);
         end
     end
 end
@@ -2833,6 +2943,7 @@ function DUIDialogBaseMixin:OnHide()
     self.handler = nil;
     self.handlerArgs = nil;
     self.questID = nil;
+    self.questTitle = nil;
     self.hintText = nil;
     self.translatorEnabled = nil;
     self.contentHeight = 0;
