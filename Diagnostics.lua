@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.30";
+local RUNTIME_BUILD = "1.0.5-d-ascension.31";
 
 local type = type;
 local tostring = tostring;
@@ -90,6 +90,34 @@ local function BuildReport()
         .."; loading="..tostring(dialogue and dialogue.isGameLoading or false));
     tinsert(lines, DescribeFrame("Settings frame", settings));
     tinsert(lines, "  UI parent alpha="..format("%.2f", UIParent:GetAlpha()));
+    local keyboard = addon.KeyboardControl;
+    if keyboard then
+        local actions = keyboard.actions or {};
+        local confirmObject = actions.Confirm and actions.Confirm.obj;
+        local numberedActions = 0;
+        local numberedKeycaps = 0;
+        for i = 1, 9 do
+            if actions["Option"..i] then
+                numberedActions = numberedActions + 1;
+            end
+            if keyboard.legacyOptionObjects and keyboard.legacyOptionObjects[i] then
+                numberedKeycaps = numberedKeycaps + 1;
+            end
+        end
+        tinsert(lines, "  Dialogue bindings: owner="..tostring(keyboard.legacyBindingOwnerAvailable)
+            .."; active="..tostring(keyboard.legacyBindingActive)
+            .."; suspended="..tostring(keyboard.legacyBindingSuspended)
+            .."; combat="..tostring(InCombatLockdown and InCombatLockdown() or false)
+            .."; handler="..tostring(dialogue and dialogue.handler));
+        tinsert(lines, "    confirm="..tostring(confirmObject and confirmObject.type)
+            .."; visible="..tostring(confirmObject and confirmObject.IsVisible and confirmObject:IsVisible())
+            .."; enabled="..tostring(confirmObject and confirmObject.IsEnabled and confirmObject:IsEnabled())
+            .."; numbered actions/keycaps="..numberedActions.."/"..numberedKeycaps
+            .."; reward armed="..tostring(keyboard.legacyRewardChoiceArm
+                and keyboard.legacyRewardChoiceArm.index));
+    else
+        tinsert(lines, "  Dialogue bindings: controller missing");
+    end
     local parchment = dialogue and dialogue.LegacyParchment;
     if parchment then
         local pieces = parchment.pieces or {};

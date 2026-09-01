@@ -126,6 +126,7 @@ if addon.IS_LEGACY_ASCENSION
         end
     end
 end
+KeyboardControl.legacyBindingOwnerAvailable = LegacyBindingOwner ~= nil;
 
 KeyboardControl.combatFrame = CreateFrame("Frame", nil, KeyboardControl, "DUISetPropagateKeyboardInputTemplate");   --"combatFrame" doesn't change KeyProgation dynamically based on input
 --KeyboardControl.combatFrame:SetPropagateKeyboardInput(true);
@@ -135,6 +136,7 @@ function KeyboardControl:ResetKeyActions()
         self:UpdateLegacyConfirmHotkey(nil);
         self:UpdateLegacyOptionHotkeys();
         self.legacyOptionCandidates = {};
+        self.legacyRewardChoiceArm = nil;
     end
     self.keyActions = {};
     self.actions = {};
@@ -412,6 +414,9 @@ function KeyboardControl:RefreshLegacyBindings()
     local anyBinding;
     local boundKeys = {};
     local blockingOverlay = self:HasLegacyBlockingOverlay();
+    if blockingOverlay then
+        self.legacyRewardChoiceArm = nil;
+    end
     local confirmBound;
     local confirmAction = self.actions and self.actions.Confirm;
     local confirmKey = confirmAction and BindingUtil:GetActiveActionKey("Confirm");
@@ -500,11 +505,31 @@ end
 
 function KeyboardControl:SuspendLegacyBindings()
     self.legacyBindingSuspended = true;
+    self.legacyRewardChoiceArm = nil;
     self:UpdateLegacyConfirmHotkey(nil);
     self:UpdateLegacyOptionHotkeys();
     self.keyActions = {};
     self.actions = {};
     self:ClearLegacyBindings();
+end
+
+
+function KeyboardControl:ConsumeLegacyCompleteBindings(object)
+    if not addon.IS_LEGACY_ASCENSION or (object and object.type ~= "complete") then
+        return
+    end
+
+    -- Completion is one-shot while the server advances the quest.  Centralize
+    -- the cleanup so keyboard, reward-number, and mouse clicks all release the
+    -- same temporary overrides before GetQuestReward can run.
+    if self.actions then
+        self.actions.Confirm = nil;
+        for i = 1, 9 do
+            self.actions["Option"..i] = nil;
+        end
+    end
+    self.legacyRewardChoiceArm = nil;
+    self:RefreshLegacyBindings();
 end
 
 
@@ -522,7 +547,33 @@ function KeyboardControl:ExecuteLegacyOption(index)
         and action.type == "button"
         and IsLegacyOptionButton(object)
         and IsVisibleAndEnabled(object) then
-        if object.type ~= "choice" then
+        if object.type == "choice" then
+            local arm = self.legacyRewardChoiceArm;
+            local confirmAction = self.actions and self.actions.Confirm;
+            local confirmObject = confirmAction and confirmAction.obj;
+            local sameNumberedChoice = arm
+                and arm.index == index
+                and arm.object == object
+                and self.parent
+                and self.parent.rewardChoiceID == object.index;
+
+            if sameNumberedChoice
+                and confirmAction
+                and confirmAction.type == "button"
+                and confirmObject
+                and confirmObject.type == "complete"
+                and IsVisibleAndEnabled(confirmObject) then
+                self.legacyRewardChoiceArm = nil;
+                self:ExecuteLegacyConfirm();
+                return
+            end
+
+            -- A reward number must first select and visibly arm that exact
+            -- choice. Only a later press of the same number may complete it;
+            -- mouse or automatic selection never makes the first press claim.
+            self.legacyRewardChoiceArm = {index = index, object = object};
+        else
+            self.legacyRewardChoiceArm = nil;
             -- Gossip and quest-list choices replace the current page.  Consume
             -- their numbered set before selecting so a held/repeated key cannot
             -- choose again while the server is rebuilding the interaction.
@@ -556,6 +607,9 @@ function KeyboardControl:ExecuteLegacyConfirm()
         and action.type == "button"
         and IsLegacyQuestConfirmButton(object)
         and IsVisibleAndEnabled(object) then
+        if object.type == "complete" then
+            self:ConsumeLegacyCompleteBindings(object);
+        end
         local noFeedback = object:OnClick("GamePad");
         if (not noFeedback) and object.PlayKeyFeedback then
             object:PlayKeyFeedback();
@@ -618,6 +672,7 @@ function KeyboardControl:OnEvent(event, ...)
             -- The secure state driver clears the actual overrides.  Only reset
             -- insecure bookkeeping here; protected APIs are forbidden now.
             self.legacyBindingActive = nil;
+            self.legacyRewardChoiceArm = nil;
             self:UpdateLegacyConfirmHotkey(nil);
             self:UpdateLegacyOptionHotkeys();
             return
@@ -639,8 +694,6 @@ function KeyboardControl:OnEvent(event, ...)
         else
             self.bindingDirty = true;
         end
-    elseif addon.IS_LEGACY_ASCENSION and event == "QUEST_FINISHED" then
-        self:SuspendLegacyBindings();
     elseif addon.IS_LEGACY_ASCENSION and event == "PLAYER_LEAVING_WORLD" then
         self:SuspendLegacyBindings();
     end
@@ -655,7 +708,6 @@ function KeyboardControl:OnHide()
     self:UnregisterEvent("PLAYER_REGEN_DISABLED");
     self:UnregisterEvent("PLAYER_REGEN_ENABLED");
     if addon.IS_LEGACY_ASCENSION then
-        self:UnregisterEvent("QUEST_FINISHED");
         self:UnregisterEvent("PLAYER_LEAVING_WORLD");
     end
     self:ResetKeyActions();
@@ -668,7 +720,6 @@ function KeyboardControl:OnShow()
 
     if addon.IS_LEGACY_ASCENSION then
         self:RegisterEvent("PLAYER_REGEN_ENABLED");
-        self:RegisterEvent("QUEST_FINISHED");
         self:RegisterEvent("PLAYER_LEAVING_WORLD");
     end
 

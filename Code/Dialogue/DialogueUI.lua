@@ -2429,6 +2429,11 @@ function DUIDialogBaseMixin:SelectRewardChoice(choiceID, showTooltip)
     end
     self.RewardSelection.BackTexture:Hide();
 
+    if selectedButton then
+        selectedButton:PlaySheen();
+        self:HighlightRewardChoice(selectedButton);
+    end
+
     if selectedButton and showTooltip then
         addon.RewardTooltipCode:OnEnter(selectedButton);
     end
@@ -2440,6 +2445,18 @@ function DUIDialogBaseMixin:HighlightRewardChoice(rewardChoiceButton)
     self.RewardSelection:Hide();
     self.RewardSelection:ClearAllPoints();
     self.GamePadFocusIndicator:Hide();
+
+    -- Mouse-out restores the persistent border around the selected reward
+    -- instead of making the player's choice visually ambiguous.
+    if not rewardChoiceButton and self.rewardChoiceID and self.itemButtonPool then
+        local buttons = self.itemButtonPool:GetObjectsByPredicate(Predicate_ActiveChoiceButton);
+        for i, button in ipairs(buttons or {}) do
+            if button.index == self.rewardChoiceID then
+                rewardChoiceButton = button;
+                break
+            end
+        end
+    end
 
     if rewardChoiceButton and self.chooseItems then
         self.RewardSelection:SetPoint("TOPLEFT", rewardChoiceButton, "TOPLEFT", 0, 0);
@@ -2684,6 +2701,13 @@ function DUIDialogBaseMixin:ShowUI(event, ...)
 
     self:Show();
     self.hasInteraction = true;
+
+    if addon.IS_LEGACY_ASCENSION then
+        -- A shown frame can change directly from one quest/gossip page to the
+        -- next without another OnShow. Reconcile the real override bindings
+        -- and their visible keycaps only after the new page is fully built.
+        KeyboardControl:RefreshLegacyBindings();
+    end
 
     TooltipFrame:Hide();
 

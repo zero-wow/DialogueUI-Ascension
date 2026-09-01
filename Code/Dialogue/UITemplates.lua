@@ -327,6 +327,12 @@ function DUIDialogOptionButtonMixin:OnClick(button)
                 --We only consume "MouseClick" when Swiping gesture finished
                 return
             end
+            if addon.IS_LEGACY_ASCENSION
+                and self.type == "complete"
+                and addon.KeyboardControl
+                and addon.KeyboardControl.ConsumeLegacyCompleteBindings then
+                addon.KeyboardControl:ConsumeLegacyCompleteBindings(self);
+            end
             --PlaySound("DIALOG_OPTION_CLICK");
             return self.onClickFunc(self, button == "LeftButton");
         end
@@ -1589,6 +1595,11 @@ function DUIDialogItemButtonMixin:OnClick(button)
             addon.DialogueUI:HighlightRewardChoice(self);
             return true
         else
+            if addon.IS_LEGACY_ASCENSION and addon.KeyboardControl then
+                -- A mouse selection does not count as the first press in the
+                -- legacy number-twice-to-complete gesture.
+                addon.KeyboardControl.legacyRewardChoiceArm = nil;
+            end
             local isValid = addon.DialogueUI:SelectRewardChoice(self.index);
             if isValid then
                 TooltipFrame:Hide();

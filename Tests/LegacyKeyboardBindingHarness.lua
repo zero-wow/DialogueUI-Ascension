@@ -174,7 +174,7 @@ function parent:HideUI(cancelPopupFirst, fromPressingKey)
 end
 
 local confirm = NewFrame("Button", nil, parent)
-confirm.type = "complete"
+confirm.type = "accept"
 confirm.clicks = 0
 function confirm:OnClick(button)
     Assert(button == "GamePad", "Confirm proxy did not preserve keyboard click semantics")
@@ -237,30 +237,45 @@ Assert(option2.clicks == 1, "a repeated numbered key selected the same page twic
 
 local reward1 = NewFrame("Button", nil, parent)
 reward1.type = "choice"
+reward1.index = 1
 reward1.clicks = 0
 function reward1:OnClick(button)
     Assert(button == "GamePad", "reward proxy did not preserve keyboard click semantics")
     self.clicks = self.clicks + 1
+    parent.rewardChoiceID = self.index
     return true
 end
 function reward1:SetHotkey(key) self.hotkey = key end
 
 local reward2 = NewFrame("Button", nil, parent)
 reward2.type = "choice"
+reward2.index = 2
 reward2.clicks = 0
 function reward2:OnClick(button)
     Assert(button == "GamePad", "second reward proxy used wrong click semantics")
     self.clicks = self.clicks + 1
+    parent.rewardChoiceID = self.index
     return true
 end
 function reward2:SetHotkey(key) self.hotkey = key end
 
+local rewardComplete = NewFrame("Button", nil, parent)
+rewardComplete.type = "complete"
+rewardComplete.clicks = 0
+function rewardComplete:OnClick(button)
+    Assert(button == "GamePad", "reward completion used wrong click semantics")
+    self.clicks = self.clicks + 1
+    return true
+end
+function rewardComplete:SetHotkey(key) self.hotkey = key end
+
 control:ResetKeyActions()
+parent.rewardChoiceID = nil
 local rewardKey1 = control:SetIndexedAction(1, reward1)
 local rewardKey2 = control:SetIndexedAction(2, reward2)
 reward1:SetHotkey(rewardKey1)
 reward2:SetHotkey(rewardKey2)
-control:SetAction("Confirm", confirm)
+control:SetAction("Confirm", rewardComplete)
 FlushTimers()
 Assert(owner.bindings["1"] and owner.bindings["2"],
     "reward choices did not acquire numbered bindings")
@@ -277,6 +292,8 @@ Assert(owner.bindings["1"] and owner.bindings["2"],
 rewardProxy2.scripts.OnClick(rewardProxy2, "LeftButton")
 Assert(reward1.clicks == 1 and reward2.clicks == 1,
     "reward bindings did not allow changing the selected reward")
+Assert(parent.rewardChoiceID == 2 and rewardComplete.clicks == 0,
+    "changing the numbered reward completed instead of selecting it")
 
 SetCombat(true)
 control:OnEvent("PLAYER_REGEN_DISABLED")
@@ -287,6 +304,28 @@ control:OnEvent("PLAYER_REGEN_ENABLED")
 Assert(owner.bindings["1"] and owner.bindings["2"]
     and reward1.hotkey == "1" and reward2.hotkey == "2",
     "combat exit did not safely restore reward bindings")
+
+-- Combat clears the double-press arm. The first post-combat press selects and
+-- arms again; only the following press of that same number may complete.
+rewardProxy2.scripts.OnClick(rewardProxy2, "LeftButton")
+Assert(rewardComplete.clicks == 0, "first post-combat reward press completed unexpectedly")
+rewardProxy2.scripts.OnClick(rewardProxy2, "LeftButton")
+Assert(rewardComplete.clicks == 1, "second press of the selected reward did not complete")
+Assert(not owner.bindings["1"] and not owner.bindings["2"],
+    "reward completion left repeatable numbered bindings active")
+rewardProxy2.scripts.OnClick(rewardProxy2, "LeftButton")
+Assert(rewardComplete.clicks == 1, "reward completion repeated during server latency")
+
+-- A direct mouse click uses the same one-shot cleanup as Space/numbered
+-- completion, so temporary overrides cannot survive while the server closes.
+control:ResetKeyActions()
+control:SetIndexedAction(1, reward1)
+control:SetIndexedAction(2, reward2)
+control:SetAction("Confirm", rewardComplete)
+FlushTimers()
+control:ConsumeLegacyCompleteBindings(rewardComplete)
+Assert(not owner.bindings.SPACE and not owner.bindings["1"] and not owner.bindings["2"],
+    "mouse completion left temporary dialogue bindings active")
 
 control:ResetKeyActions()
 Assert(reward1.hotkey == nil and reward2.hotkey == nil,
@@ -457,14 +496,22 @@ exitProxy.scripts.OnClick(exitProxy, "LeftButton")
 Assert(parent.hideCalls == 1 and parent.lastCancelPopupFirst and parent.lastFromPressingKey,
     "Escape proxy did not use the dialogue close path")
 
+parent.handler = "HandleGossip"
 control:OnEvent("QUEST_FINISHED")
-Assert(next(owner.bindings) == nil, "quest finish did not release every dialogue binding")
-Assert(option1.hotkey == nil and option2.hotkey == nil,
-    "quest finish retained numbered keycaps")
-
-control:SetAction("Confirm", confirm, true)
-FlushTimers()
-Assert(owner.bindings.G and owner.bindings.ESCAPE, "new dialogue action did not resume bindings")
+Assert(owner.bindings.G and owner.bindings["1"] and owner.bindings["2"],
+    "stale quest finish wiped a freshly rendered gossip page")
+Assert(option1.hotkey == "1" and option2.hotkey == "2",
+    "stale quest finish removed current gossip keycaps")
+parent.handler = "HandleQuestGreeting"
+control:OnEvent("QUEST_FINISHED")
+Assert(owner.bindings["1"] and owner.bindings["2"],
+    "stale quest finish wiped a freshly rendered quest-greeting page")
+parent.handler = "HandleQuestComplete"
+confirm.type = "complete"
+control:RefreshLegacyBindings()
+control:OnEvent("QUEST_FINISHED")
+Assert(owner.bindings.G and confirm.hotkey == "G",
+    "stale quest finish removed the current Complete-page binding or keycap")
 
 parent.shown = false
 control:OnHide()
