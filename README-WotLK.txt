@@ -1,4 +1,4 @@
-Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r28
+Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r29
 
 Target
   WoW 3.3.5a, build 12340, Interface 30300.

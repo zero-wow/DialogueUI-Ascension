@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.28";
+local RUNTIME_BUILD = "1.0.5-d-ascension.29";
 
 local type = type;
 local tostring = tostring;
@@ -143,6 +143,8 @@ local function BuildReport()
             .."; external handler="..tostring(state.handledExternally));
         tinsert(lines, "  Stock gossip frame: shown="..tostring(state.stockGossipShown)
             .."; fallback gated="..tostring(state.gossipFallbackGated));
+        tinsert(lines, "  Stock gossip suppression: armed="..tostring(state.stockGossipSuppressionArmed)
+            .."; hides="..tostring(state.stockGossipSuppressions or 0));
         tinsert(lines, "  Last interaction: "..tostring(state.lastEvent or "none")
             .." ("..tostring(state.lastResult or "not received")..")");
     end

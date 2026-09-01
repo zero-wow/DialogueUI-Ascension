@@ -28,6 +28,7 @@ local HANDLE_EVENT_EXTERNALLY = false;      --If true, Events will be handled by
 local EL = CreateFrame("Frame");
 local Muter = {};
 local LastInteraction = {};
+local SuppressLegacyStockGossip;
 
 local function RecordInteraction(event, result)
     LastInteraction.event = event;
@@ -47,6 +48,9 @@ function addon.GetInteractionDebugState()
         stockGossipShown = GossipFrame and GossipFrame.IsShown and GossipFrame:IsShown() or false,
         gossipFallbackGated = Muter.gossipHandleShowWrapper ~= nil
             and GossipFrame and GossipFrame.HandleShow == Muter.gossipHandleShowWrapper or false,
+        stockGossipSuppressionArmed = addon.IS_LEGACY_ASCENSION
+            and Muter.muted == true and type(SuppressLegacyStockGossip) == "function" or false,
+        stockGossipSuppressions = Muter.stockGossipSuppressions or 0,
     };
 end
 
@@ -206,6 +210,13 @@ function EL:OnEvent(event, ...)
             else
                 RecordInteraction(event, "throttled duplicate");
             end
+        end
+
+        -- Ascension may show the stock GossipFrame from a separate manager
+        -- after every GOSSIP_SHOW listener has run.  Remove that duplicate on
+        -- the next update without closing the live gossip interaction.
+        if SuppressLegacyStockGossip then
+            SuppressLegacyStockGossip(true);
         end
 
         self:NegateLastEvent(event);
@@ -481,6 +492,49 @@ do  --Unlisten events from default UI
         end
     end
 
+    SuppressLegacyStockGossip = function(defer)
+        if not addon.IS_LEGACY_ASCENSION or not Muter.muted or not GossipFrame then
+            return;
+        end
+
+        local function HideStockFrameSafely()
+            if not Muter.muted or not GossipFrame
+                or not GossipFrame.IsShown or not GossipFrame:IsShown() then
+                return;
+            end
+
+            -- Stock 3.3.5 GossipFrame calls CloseGossip() from OnHide.  Hiding
+            -- it normally would terminate the same interaction DialogueUI is
+            -- displaying.  Remove only that script for the synchronous hide,
+            -- then restore the exact handler immediately.
+            local okScript, onHide = pcall(GossipFrame.GetScript, GossipFrame, "OnHide");
+            if not okScript then
+                return;
+            end
+            local cleared = pcall(GossipFrame.SetScript, GossipFrame, "OnHide", nil);
+            if not cleared then
+                return;
+            end
+
+            if HideUIPanel then
+                pcall(HideUIPanel, GossipFrame);
+            end
+            if GossipFrame:IsShown() then
+                pcall(GossipFrame.Hide, GossipFrame);
+            end
+            pcall(GossipFrame.SetScript, GossipFrame, "OnHide", onHide);
+
+            if not GossipFrame:IsShown() then
+                Muter.stockGossipSuppressions = (Muter.stockGossipSuppressions or 0) + 1;
+            end
+        end
+
+        HideStockFrameSafely();
+        if defer and C_Timer and C_Timer.After then
+            C_Timer.After(0, HideStockFrameSafely);
+        end
+    end
+
     local gossipFrameEvents = {
         GOSSIP_SHOW = true,
         GOSSIP_CLOSED = true,
@@ -551,6 +605,7 @@ do  --Unlisten events from default UI
                     Muter.questFrameEvents = MergeSavedEvents(Muter.questFrameEvents,
                         SuspendRegisteredEvents(QuestFrame, Muter.questEvents));
                 end
+                SuppressLegacyStockGossip(true);
                 return;
             end
             Muter.muted = true;
@@ -561,6 +616,7 @@ do  --Unlisten events from default UI
                 Muter.customGossipEvents = SuspendRegisteredEvents(CustomGossipFrameManager, customGossipEvents);
             end
             Muter.gossipFrameEvents = SuspendRegisteredEvents(GossipFrame, gossipFrameEvents);
+            SuppressLegacyStockGossip(true);
 
             if hideQuestFrame then
                 -- Preserve unrelated Blizzard behavior and make restoration
