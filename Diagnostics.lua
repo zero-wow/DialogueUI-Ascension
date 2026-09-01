@@ -7,7 +7,7 @@ local addonName, addon = ...;
 local MAX_ERRORS = 12;
 local MAX_STACK_CHARS = 3000;
 local ERROR_MARKER = "DialogueUI-Ascension";
-local RUNTIME_BUILD = "1.0.5-d-ascension.31";
+local RUNTIME_BUILD = "1.0.5-d-ascension.32";
 
 local type = type;
 local tostring = tostring;
@@ -89,6 +89,16 @@ local function BuildReport()
     tinsert(lines, DescribeFrame("Quest frame", dialogue)
         .."; loading="..tostring(dialogue and dialogue.isGameLoading or false));
     tinsert(lines, DescribeFrame("Settings frame", settings));
+    local book = _G.DUIBookFrame;
+    tinsert(lines, DescribeFrame("Book frame", book));
+    if book then
+        local bookPieces = book.BackgroundPieces or {};
+        local firstBookPiece = bookPieces[1];
+        tinsert(lines, "  Book texture: pieces="..#bookPieces
+            .."; first shown="..tostring(firstBookPiece and firstBookPiece:IsShown())
+            .."; texture="..tostring(firstBookPiece and firstBookPiece.GetTexture
+                and firstBookPiece:GetTexture() or book.textureFile));
+    end
     tinsert(lines, "  UI parent alpha="..format("%.2f", UIParent:GetAlpha()));
     local keyboard = addon.KeyboardControl;
     if keyboard then

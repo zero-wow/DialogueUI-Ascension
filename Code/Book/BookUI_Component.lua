@@ -16,6 +16,10 @@ local Mixin = API.Mixin;
 local Round = API.Round;
 local CreateFrame = addon.Legacy.CreateFrame or CreateFrame;
 
+local SHARED_TEXTURE_PATH = addon.IS_LEGACY_ASCENSION
+    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Theme_Shared\\"
+    or "Interface/AddOns/DialogueUI-Ascension/Art/Theme_Shared/";
+
 
 -- User Settings
 
@@ -572,7 +576,7 @@ do  --ItemButton (Show item's description lore "")
 
     function BookComponent:CreateSourceItemButton(parent)
         local f = CreateFrame("Frame", nil, parent, "DUIBookItemButtonTemplate");
-        f.TextBackground:SetTexture("Interface/AddOns/DialogueUI-Ascension/Art/Theme_Shared/NameplateDialogShadow.tga");
+        f.TextBackground:SetTexture(SHARED_TEXTURE_PATH.."NameplateDialogShadow.tga");
         f.ItemIcon:SetTexCoord(0.0625, 0.9275, 0.0625, 0.9275);
         f.ItemBorder:SetTexCoord(768/1024, 864/1024, 1616/2048, 1712/2048);
         f.fontSize = 14;

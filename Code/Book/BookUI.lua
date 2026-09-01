@@ -14,6 +14,10 @@ local FadeHelper = addon.UIParentFadeHelper;
 local Round = API.Round;
 local FadeFrame = API.UIFrameFade;
 
+local BOOK_TEXTURE_PATH = addon.IS_LEGACY_ASCENSION
+    and "Interface\\AddOns\\DialogueUI-Ascension\\Art\\Book\\"
+    or "Interface/AddOns/DialogueUI-Ascension/Art/Book/";
+
 
 local MainFrame;
 local EL = CreateFrame("Frame");    --EventListener
@@ -562,7 +566,10 @@ do  --Background Calculation \ Theme
     function DUIBookUIMixin:SetTextureKit(textureKitID)
         if textureKitID and TextureKit[textureKitID] and textureKitID ~= self.textureKitID then
             local info = TextureKit[textureKitID];
-            local file = string.format("Interface/AddOns/DialogueUI-Ascension/Art/Book/TextureKit-"..info.file);
+            -- This 3.3.5 renderer requires legacy backslash paths for addon
+            -- TGAs.  A forward-slash path leaves the text and vignette visible
+            -- while every atlas-backed piece of the book is transparent.
+            local file = BOOK_TEXTURE_PATH.."TextureKit-"..info.file;
 
             self.textureKitID = textureKitID;
             self.textureFile = file;
@@ -631,6 +638,13 @@ do  --Background Calculation \ Theme
             self.BackgroundPieces = p;
             p[1] = self:CreateTexture(nil, "BACKGROUND", nil, -1);
             p[2] = self.Footer:CreateTexture(nil, "OVERLAY", nil, -1);      --We use the bottom texture's upper border to "mask" the text body
+
+            -- Keep lazy/recreated background pieces synchronized with the
+            -- texture kit that was selected before their creation.
+            if self.textureFile then
+                p[1]:SetTexture(self.textureFile);
+                p[2]:SetTexture(self.textureFile);
+            end
         end
 
         local cs = ConvertedSize;
@@ -1307,6 +1321,23 @@ do  --Main UI
         self.OnLoad = nil;
         self:SetScript("OnLoad", nil);
 
+        -- Raw keyboard focus is deliberately disabled on 3.3.5 because it can
+        -- swallow action-bar keys.  Use FrameXML's native Escape-close list so
+        -- a standalone readable book still closes normally and safely.
+        if addon.IS_LEGACY_ASCENSION and UISpecialFrames then
+            local frameName = self:GetName();
+            local registered;
+            for i = 1, #UISpecialFrames do
+                if UISpecialFrames[i] == frameName then
+                    registered = true;
+                    break
+                end
+            end
+            if not registered then
+                table.insert(UISpecialFrames, frameName);
+            end
+        end
+
         addon.SharedVignette:AddOwner(self);    --"SharedVignette" defined in DialogueUI.lua
 
         --UtilityFontString is used to evaluate text height
@@ -1884,10 +1915,16 @@ do  --EventListener
         self.t = self.t + elapsed;
         if self.t > 0.03 then
             self:SetScript("OnUpdate", nil);
+            self.processEvent = nil;
             if (not self.showItemText) and MainFrame:IsShown() and (not GetDBBool("BookKeepUIOpen")) then
                 MainFrame:Hide();
             end
         end
+    end
+
+    function EL:CancelPendingClose()
+        self.processEvent = nil;
+        self:SetScript("OnUpdate", nil);
     end
 
     function EL:ProcessEventNextUpdate(customDelay)
@@ -1899,6 +1936,11 @@ do  --EventListener
 
     function EL:OnEvent(event, ...)
         if event == "ITEM_TEXT_BEGIN" then
+            -- A second readable object can begin before the delayed close from
+            -- the previous one runs.  Never let that stale timer hide or clear
+            -- the newly opened book.
+            self:CancelPendingClose();
+
             --1st start interacting with book
             if MainFrame.Init then
                 MainFrame:Init();
@@ -1937,6 +1979,7 @@ do  --EventListener
             end
 
         elseif event == "ITEM_TEXT_READY" then
+            self:CancelPendingClose();
             self.showItemText = true;
             --Game shows ItemTextFrame here
             --local creator = ItemTextGetCreator();   --Niable, "\n\n"..ITEM_TEXT_FROM.."\n"..creator.."\n"
@@ -1954,7 +1997,6 @@ do  --EventListener
             if self.itemTextBegun then
                 self.itemTextBegun = false;
                 Cache:SavePagePosition();
-                CloseItemText();
             end
             self.showItemText = false;
             --MainFrame:Hide();
