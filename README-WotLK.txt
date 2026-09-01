@@ -1,4 +1,4 @@
-Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r27
+Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r28
 
 Target
   WoW 3.3.5a, build 12340, Interface 30300.
@@ -44,7 +44,9 @@ Optional APIs
 Conflicts
   The Ascension integration suspends competing quest/gossip event ownership
   from Immersion and DialogKey while Dialogue UI owns the interaction, then
-  restores it afterward.
+  restores it afterward. Ascension's custom gossip manager remains available
+  for item-driven panels such as the Travel Permit, while its stock Blizzard
+  GossipFrame fallback is gated to prevent a duplicate panel beside Dialogue UI.
 
 Diagnostics
   Dialogue UI records up to 12 of its own Lua errors in the account-wide

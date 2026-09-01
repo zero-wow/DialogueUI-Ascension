@@ -44,6 +44,9 @@ function addon.GetInteractionDebugState()
         lastResult = LastInteraction.result,
         lastTime = LastInteraction.time,
         frameShown = LastInteraction.frameShown,
+        stockGossipShown = GossipFrame and GossipFrame.IsShown and GossipFrame:IsShown() or false,
+        gossipFallbackGated = Muter.gossipHandleShowWrapper ~= nil
+            and GossipFrame and GossipFrame.HandleShow == Muter.gossipHandleShowWrapper or false,
     };
 end
 
@@ -461,6 +464,14 @@ do  --Unlisten events from default UI
         return saved;
     end
 
+    local function MergeSavedEvents(saved, added)
+        saved = saved or {};
+        for event in pairs(added or {}) do
+            saved[event] = true;
+        end
+        return saved;
+    end
+
     local function RestoreRegisteredEvents(frame, saved)
         if not frame or not saved then
             return;
@@ -480,13 +491,70 @@ do  --Unlisten events from default UI
         GOSSIP_SHOW = true,
         GOSSIP_CLOSED = true,
     };
+    local hideQuestFrame = true;    --false when we do debug
+
+    local function GateLegacyGossipFallback()
+        if not addon.IS_LEGACY_ASCENSION or not GossipFrame then
+            return;
+        end
+
+        local current = GossipFrame.HandleShow;
+        if current == Muter.gossipHandleShowWrapper then
+            return;
+        end
+        if type(current) ~= "function" then
+            return;
+        end
+
+        -- CustomGossipFrameManager must remain registered because it owns
+        -- Ascension-only panels such as the Travel Permit.  Its unhandled
+        -- fallback calls GossipFrame:HandleShow() directly, bypassing the
+        -- stock frame's muted events.  Gate only that fallback while DUI owns
+        -- the interaction; custom handlers continue to run normally.
+        local original = current;
+        local wrapper = function(self, ...)
+            if Muter.muted then
+                return;
+            end
+            return original(self, ...);
+        end;
+
+        Muter.gossipHandleShowOriginal = original;
+        Muter.gossipHandleShowWrapper = wrapper;
+        GossipFrame.HandleShow = wrapper;
+    end
+
+    local function RestoreLegacyGossipFallback()
+        if addon.IS_LEGACY_ASCENSION and GossipFrame
+            and GossipFrame.HandleShow == Muter.gossipHandleShowWrapper then
+            GossipFrame.HandleShow = Muter.gossipHandleShowOriginal;
+        end
+        Muter.gossipHandleShowOriginal = nil;
+        Muter.gossipHandleShowWrapper = nil;
+    end
 
     local function SetUseDialogueUI(state)
         if state == nil then state = true end;
 
         if state then
-            if Muter.muted then return end;
+            if Muter.muted then
+                -- Refresh the gate in case Ascension or another addon supplied
+                -- HandleShow or registered events after the first takeover.
+                GateLegacyGossipFallback();
+                if not addon.IS_LEGACY_ASCENSION then
+                    Muter.customGossipEvents = MergeSavedEvents(Muter.customGossipEvents,
+                        SuspendRegisteredEvents(CustomGossipFrameManager, customGossipEvents));
+                end
+                Muter.gossipFrameEvents = MergeSavedEvents(Muter.gossipFrameEvents,
+                    SuspendRegisteredEvents(GossipFrame, gossipFrameEvents));
+                if hideQuestFrame then
+                    Muter.questFrameEvents = MergeSavedEvents(Muter.questFrameEvents,
+                        SuspendRegisteredEvents(QuestFrame, Muter.questEvents));
+                end
+                return;
+            end
             Muter.muted = true;
+            GateLegacyGossipFallback();
             EL:ListenEvents(true);
 
             if not addon.IS_LEGACY_ASCENSION then
@@ -494,7 +562,6 @@ do  --Unlisten events from default UI
             end
             Muter.gossipFrameEvents = SuspendRegisteredEvents(GossipFrame, gossipFrameEvents);
 
-            local hideQuestFrame = true;    --false when we do debug
             if hideQuestFrame then
                 -- Preserve unrelated Blizzard behavior and make restoration
                 -- exact: only mute the quest events this replacement owns.
@@ -506,6 +573,7 @@ do  --Unlisten events from default UI
 
         elseif Muter.muted then
             Muter.muted = false;
+            RestoreLegacyGossipFallback();
             EL:ListenEvents(false);
 
             if not addon.IS_LEGACY_ASCENSION then
@@ -515,7 +583,6 @@ do  --Unlisten events from default UI
             Muter.customGossipEvents = nil;
             Muter.gossipFrameEvents = nil;
 
-            local hideQuestFrame = true;    --false when we do debug
             if hideQuestFrame then
                 RestoreRegisteredEvents(QuestFrame, Muter.questFrameEvents);
                 Muter.questFrameEvents = nil;
@@ -545,7 +612,8 @@ do  --Unlisten events from default UI
             and GetRewardText;
 
         if not ready then
-            API.PrintMessage("Dialogue UI - Ascension", "Compatibility self-test failed; Blizzard quest UI was left enabled.");
+            pcall(SetUseDialogueUI, false);
+            API.PrintMessage("Dialogue UI - Ascension", "Compatibility self-test failed; Blizzard quest UI was restored.");
             return
         end
 
