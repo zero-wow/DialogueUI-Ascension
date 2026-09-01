@@ -1247,10 +1247,48 @@ function ItemButtonSharedMixin:OnLeave()
 end
 
 function ItemButtonSharedMixin:OnRelease()
+    if self.HotkeyFrame then
+        self:SetHotkey(nil);
+        self.HotkeyFrame = nil;
+    end
     self:ClearAllPoints();
     self:Hide();
     self:SetScript("OnUpdate", nil);
     self:RemoveButtonMarker();
+end
+
+function ItemButtonSharedMixin:SetHotkey(hotkey)
+    if hotkey then
+        local hotkeyFrame = self.HotkeyFrame or addon.DialogueUI.hotkeyFramePool:Acquire();
+        self.HotkeyFrame = hotkeyFrame;
+        hotkeyFrame:SetParent(self);
+        hotkeyFrame:ClearAllPoints();
+        hotkeyFrame:SetPoint("LEFT", self, "LEFT", 4, 0);
+        if hotkeyFrame:SetKey(hotkey) then
+            if self.AreaDefinitionItemBorder and self.Name then
+                local hotkeyWidth = hotkeyFrame:GetWidth();
+                self.AreaDefinitionItemBorder:ClearAllPoints();
+                self.AreaDefinitionItemBorder:SetPoint("LEFT", self, "LEFT", hotkeyWidth + 8, 0);
+                self.Name:ClearAllPoints();
+                self.Name:SetPoint("TOPLEFT", self.AreaDefinitionItemBorder, "TOPRIGHT", 4, 0);
+                self.Name:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -8, 0);
+            end
+            hotkeyFrame:Show();
+        else
+            hotkeyFrame:Hide();
+        end
+    else
+        if self.HotkeyFrame then
+            self.HotkeyFrame:ClearKey();
+        end
+        if self.AreaDefinitionItemBorder and self.Name then
+            self.AreaDefinitionItemBorder:ClearAllPoints();
+            self.AreaDefinitionItemBorder:SetPoint("LEFT", self, "LEFT", 0, 0);
+            self.Name:ClearAllPoints();
+            self.Name:SetPoint("TOPLEFT", self, "TOPLEFT", 40, 0);
+            self.Name:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -8, 0);
+        end
+    end
 end
 
 function ItemButtonSharedMixin:RemoveTextureBorder(state)

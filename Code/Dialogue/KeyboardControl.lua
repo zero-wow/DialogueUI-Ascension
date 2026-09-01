@@ -261,6 +261,7 @@ local LegacyOptionButtonTypes = {
     gossip = true,
     availableQuest = true,
     activeQuest = true,
+    choice = true,
 };
 
 local function IsLegacyQuestConfirmButton(object)
@@ -521,13 +522,15 @@ function KeyboardControl:ExecuteLegacyOption(index)
         and action.type == "button"
         and IsLegacyOptionButton(object)
         and IsVisibleAndEnabled(object) then
-        -- Consume the whole numbered set before selecting.  This prevents a
-        -- held/repeated key from choosing again while the server is replacing
-        -- the gossip page.  The next page rebuild registers its own choices.
-        for i = 1, 9 do
-            self.actions["Option"..i] = nil;
+        if object.type ~= "choice" then
+            -- Gossip and quest-list choices replace the current page.  Consume
+            -- their numbered set before selecting so a held/repeated key cannot
+            -- choose again while the server is rebuilding the interaction.
+            for i = 1, 9 do
+                self.actions["Option"..i] = nil;
+            end
+            self:RefreshLegacyBindings();
         end
-        self:RefreshLegacyBindings();
         local noFeedback = object:OnClick("GamePad");
         if (not noFeedback) and object.PlayKeyFeedback then
             object:PlayKeyFeedback();

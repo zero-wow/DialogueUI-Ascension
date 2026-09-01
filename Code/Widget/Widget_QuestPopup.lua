@@ -11,11 +11,25 @@ local FontUtil = addon.FontUtil;
 local easeFunc = addon.EasingFunctions.outQuart;
 local After = C_Timer.After;
 local GetQuestID = addon.Legacy.GetQuestID or GetQuestID;
--- Ascension exposes these Retail-style helpers, while stock and many private
--- 3.3.5 clients do not.  The DialogueUI popup can still be used without
--- registering a duplicate Objective Tracker popup on those clients.
-local AddAutoQuestPopUp = AddAutoQuestPopUp or function() return false end;
-local RemoveAutoQuestPopUp = RemoveAutoQuestPopUp or function() end;
+-- Resolve these globals at call time.  Quest trackers commonly install their
+-- cleanup hooks after DialogueUI loads; retaining the earlier function would
+-- bypass those hooks and leave a stale auto-provided quest card behind.
+local function AddNativeAutoQuestPopUp(...)
+    local func = _G.AddAutoQuestPopUp;
+    if type(func) == "function" then
+        local ok, result = pcall(func, ...);
+        return ok and result
+    end
+    return false
+end
+
+local function RemoveNativeAutoQuestPopUp(questID)
+    local func = _G.RemoveAutoQuestPopUp;
+    if type(func) == "function" then
+        return pcall(func, questID)
+    end
+    return false
+end
 local PlayAutoAcceptQuestSound = PlayAutoAcceptQuestSound;
 local ShowQuestOffer = ShowQuestOffer;
 local AcceptQuest = AcceptQuest;
@@ -245,7 +259,7 @@ do
         self:Hide();
         WidgetManager:ChainRemove(self);
         if self.questID then
-            RemoveAutoQuestPopUp(self.questID);
+            RemoveNativeAutoQuestPopUp(self.questID);
             API.RemoveQuestObjectiveTrackerQuestPopUp(self.questID);
             if QuestWidgets[self.questID] == self then
                 QuestWidgets[self.questID] = nil;
@@ -261,6 +275,9 @@ do
 
             self.questID = nil;
             self:UnregisterEvent("QUEST_FINISHED");
+            if WidgetManager.UpdateQuestAcceptedRegistration then
+                WidgetManager:UpdateQuestAcceptedRegistration();
+            end
         end
     end
 
@@ -391,6 +408,16 @@ do  --Create Popup
         return f
     end
 
+    function WidgetManager:UpdateQuestAcceptedRegistration()
+        for _, widget in pairs(QuestWidgets) do
+            if widget.isActive and widget.method == "SetQuestOffer" then
+                self:RegisterEvent("QUEST_ACCEPTED");
+                return
+            end
+        end
+        self:UnregisterEvent("QUEST_ACCEPTED");
+    end
+
     ---Add reroute the current Quest Detail to a popup, left click to view in DUI
     ---@param questStartItemID number? payload from QUEST_DETAIL
     ---@param isReroutedQuest boolean? Some quest are repeatedly pushed to the player unless they accept it (Uniting the Isles).
@@ -400,7 +427,8 @@ do  --Create Popup
         local questID = GetQuestID();
         if questID and questID ~= 0 then
             local popUpType = "OFFER";
-            if isReroutedQuest or AddAutoQuestPopUp(questID, popUpType) then
+            local nativePopupAdded = not isReroutedQuest and AddNativeAutoQuestPopUp(questID, popUpType);
+            if isReroutedQuest or addon.IS_LEGACY_ASCENSION or nativePopupAdded then
                 local f = QuestWidgets[questID];
                 if not f then
                     f = self:AcquireQuestPopup();
@@ -408,11 +436,10 @@ do  --Create Popup
 
                 if API.IsPlayerOnQuest(questID) then
                     f:SetAcceptedQuest(questID, questStartItemID);
-                    self:UnregisterEvent("QUEST_ACCEPTED");
                 else
                     f:SetQuestOffer(questID, questStartItemID, isReroutedQuest);
-                    self:RegisterEvent("QUEST_ACCEPTED");   --TO-DO: Unregister if player turns down the offer
                 end
+                self:UpdateQuestAcceptedRegistration();
 
                 if PlayAutoAcceptQuestSound then
                     PlayAutoAcceptQuestSound();
@@ -436,16 +463,141 @@ do  --Create Popup
         end
     end
 
-    function WidgetManager:QUEST_ACCEPTED(questID)
+    function WidgetManager:QUEST_ACCEPTED(questLogIndex, eventQuestID)
+        local questID = questLogIndex;
         if addon.IS_LEGACY_ASCENSION then
-            local questLogInfo = C_QuestLog.GetInfo(questID);
-            questID = questLogInfo and questLogInfo.questID;
+            local firstArg = tonumber(questLogIndex);
+            local explicitQuestID = tonumber(eventQuestID);
+            questID = explicitQuestID and explicitQuestID > 0 and explicitQuestID or nil;
+            if not questID and firstArg then
+                local questLogInfo = C_QuestLog.GetInfo(firstArg);
+                questID = questLogInfo and questLogInfo.questID;
+            end
+            if (not questID or questID <= 0) and firstArg and QuestWidgets[firstArg] then
+                questID = firstArg;
+            end
+        end
+        questID = tonumber(questID);
+        if questID then
+            -- Remove the native offer immediately, while retaining DialogueUI's
+            -- short accepted toast.  Calling the live global also notifies any
+            -- tracker which installed a later secure hook.
+            RemoveNativeAutoQuestPopUp(questID);
+            API.RemoveQuestObjectiveTrackerQuestPopUp(questID);
         end
         if questID and QuestWidgets[questID] then
-            self:UnregisterEvent("QUEST_ACCEPTED");
             QuestWidgets[questID]:SetAcceptedQuest(questID);
         end
+        self:UpdateQuestAcceptedRegistration();
     end
+
+    local reconciliationQueued;
+
+    local function GetQuestResolution(questID)
+        local onQuestOK, onQuest = pcall(API.IsPlayerOnQuest, questID);
+        if onQuestOK and onQuest then
+            return "accepted"
+        end
+        local isCompleted = C_QuestLog.IsQuestFlaggedCompleted;
+        if type(isCompleted) == "function" then
+            local completedOK, completed = pcall(isCompleted, questID);
+            if completedOK and completed then
+                return "completed"
+            end
+        end
+    end
+
+    local function ReconcileNativeAutoQuestPopUps()
+        reconciliationQueued = nil;
+        local questIDs = {};
+
+        for questID, widget in pairs(QuestWidgets) do
+            if widget.method == "SetQuestOffer" then
+                questIDs[questID] = true;
+            end
+        end
+
+        local getPopup = _G.GetAutoQuestPopUp;
+        if type(getPopup) == "function" then
+            local limit = 20;
+            local getCount = _G.GetNumAutoQuestPopUps;
+            if type(getCount) == "function" then
+                local ok, count = pcall(getCount);
+                if ok and tonumber(count) then
+                    limit = math.max(0, math.min(50, tonumber(count)));
+                end
+            end
+            for index = 1, limit do
+                local ok, questID, popupType = pcall(getPopup, index);
+                questID = ok and tonumber(questID) or nil;
+                popupType = ok and popupType or nil;
+                local isOffer = popupType == nil
+                    or popupType == ""
+                    or string.upper(tostring(popupType)) == "OFFER";
+                if questID and isOffer then
+                    questIDs[questID] = true;
+                end
+            end
+        end
+
+        for questID in pairs(questIDs) do
+            local resolution = GetQuestResolution(questID);
+            if resolution then
+                RemoveNativeAutoQuestPopUp(questID);
+                API.RemoveQuestObjectiveTrackerQuestPopUp(questID);
+                local widget = QuestWidgets[questID];
+                if widget and widget.method == "SetQuestOffer" then
+                    if resolution == "accepted" then
+                        widget:SetAcceptedQuest(questID);
+                    else
+                        widget:Close();
+                    end
+                end
+            end
+        end
+        WidgetManager:UpdateQuestAcceptedRegistration();
+    end
+
+    local function QueuePopupReconciliation(delay)
+        if delay and delay > 0 then
+            After(delay, ReconcileNativeAutoQuestPopUps);
+        elseif not reconciliationQueued then
+            reconciliationQueued = true;
+            After(0, ReconcileNativeAutoQuestPopUps);
+        end
+    end
+
+    function WidgetManager:QUEST_LOG_UPDATE()
+        QueuePopupReconciliation();
+    end
+
+    function WidgetManager:QUEST_QUERY_COMPLETE()
+        QueuePopupReconciliation();
+    end
+
+    function WidgetManager:QUEST_TURNED_IN(questID)
+        questID = tonumber(questID);
+        if questID then
+            RemoveNativeAutoQuestPopUp(questID);
+            API.RemoveQuestObjectiveTrackerQuestPopUp(questID);
+            local widget = QuestWidgets[questID];
+            if widget and widget.method == "SetQuestOffer" then
+                widget:Close();
+            end
+        end
+        self:UpdateQuestAcceptedRegistration();
+        QueuePopupReconciliation();
+    end
+
+    function WidgetManager:PLAYER_ENTERING_WORLD()
+        QueuePopupReconciliation();
+        QueuePopupReconciliation(0.75);
+    end
+
+    WidgetManager:RegisterEvent("QUEST_LOG_UPDATE");
+    WidgetManager:RegisterEvent("QUEST_QUERY_COMPLETE");
+    WidgetManager:RegisterEvent("QUEST_TURNED_IN");
+    WidgetManager:RegisterEvent("PLAYER_ENTERING_WORLD");
 
 
     local function Settings_AutoQuestPopup(dbValue)

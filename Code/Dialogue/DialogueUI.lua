@@ -3446,8 +3446,10 @@ do  --Quest Rewards
                 local numChoices = data.numChoices;
                 local offsetX = 0;
                 local backgroundID;
+                local useSingleColumn = INPUT_DEVICE_GAME_PAD
+                    or (addon.IS_LEGACY_ASCENSION and addon.FontUtil:GetDefaultFontSize() > 16);
 
-                sizeX = (INPUT_DEVICE_GAME_PAD and 4) or 2;
+                sizeX = (useSingleColumn and 4) or 2;
 
                 local isChoosingReward = data.chooseItems;
 
@@ -3477,17 +3479,20 @@ do  --Quest Rewards
                     object:SetPoint("TOPLEFT", self.ContentFrame, "TOPLEFT", baseOffsetX + offsetX, -offsetY);
                     offsetX = offsetX + 2*gridWidth + 2*ITEM_BUTTON_SPACING;
 
-                    if INPUT_DEVICE_GAME_PAD or orderIndex % 2 == 0 then
+                    if useSingleColumn or orderIndex % 2 == 0 then
                         offsetY = offsetY + itemButtonHeight + ITEM_BUTTON_SPACING;
                         offsetX = 0;
                     end
 
                     if chooseItems then
+                        if addon.IS_LEGACY_ASCENSION and isChoosingReward then
+                            object:SetHotkey(KeyboardControl:SetIndexedAction(orderIndex, object));
+                        end
                         self:IndexGamePadObject(object);
                     end
                 end
 
-                local numRows = (INPUT_DEVICE_GAME_PAD and numChoices) or math.ceil(numChoices / 2);
+                local numRows = (useSingleColumn and numChoices) or math.ceil(numChoices / 2);
                 offsetY = fromOffsetY + (itemButtonHeight + ITEM_BUTTON_SPACING) * numRows - ITEM_BUTTON_SPACING;
                 offsetY = offsetY + PARAGRAPH_SPACING;
 

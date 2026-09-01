@@ -235,6 +235,63 @@ Assert(not owner.bindings["1"] and not owner.bindings["2"]
 optionProxy2.scripts.OnClick(optionProxy2, "LeftButton")
 Assert(option2.clicks == 1, "a repeated numbered key selected the same page twice")
 
+local reward1 = NewFrame("Button", nil, parent)
+reward1.type = "choice"
+reward1.clicks = 0
+function reward1:OnClick(button)
+    Assert(button == "GamePad", "reward proxy did not preserve keyboard click semantics")
+    self.clicks = self.clicks + 1
+    return true
+end
+function reward1:SetHotkey(key) self.hotkey = key end
+
+local reward2 = NewFrame("Button", nil, parent)
+reward2.type = "choice"
+reward2.clicks = 0
+function reward2:OnClick(button)
+    Assert(button == "GamePad", "second reward proxy used wrong click semantics")
+    self.clicks = self.clicks + 1
+    return true
+end
+function reward2:SetHotkey(key) self.hotkey = key end
+
+control:ResetKeyActions()
+local rewardKey1 = control:SetIndexedAction(1, reward1)
+local rewardKey2 = control:SetIndexedAction(2, reward2)
+reward1:SetHotkey(rewardKey1)
+reward2:SetHotkey(rewardKey2)
+control:SetAction("Confirm", confirm)
+FlushTimers()
+Assert(owner.bindings["1"] and owner.bindings["2"],
+    "reward choices did not acquire numbered bindings")
+Assert(reward1.hotkey == "1" and reward2.hotkey == "2",
+    "reward choices did not show numbered keycaps")
+local rewardProxy1 = frames[owner.bindings["1"].buttonName]
+local rewardProxy2 = frames[owner.bindings["2"].buttonName]
+rewardProxy1.scripts.OnClick(rewardProxy1, "LeftButton")
+Assert(reward1.clicks == 1 and reward2.clicks == 0,
+    "first reward binding selected the wrong reward")
+control:RefreshLegacyBindings()
+Assert(owner.bindings["1"] and owner.bindings["2"],
+    "the Complete-button refresh consumed numbered reward bindings")
+rewardProxy2.scripts.OnClick(rewardProxy2, "LeftButton")
+Assert(reward1.clicks == 1 and reward2.clicks == 1,
+    "reward bindings did not allow changing the selected reward")
+
+SetCombat(true)
+control:OnEvent("PLAYER_REGEN_DISABLED")
+Assert(next(owner.bindings) == nil and reward1.hotkey == nil and reward2.hotkey == nil,
+    "combat entry retained reward bindings or keycaps")
+SetCombat(false)
+control:OnEvent("PLAYER_REGEN_ENABLED")
+Assert(owner.bindings["1"] and owner.bindings["2"]
+    and reward1.hotkey == "1" and reward2.hotkey == "2",
+    "combat exit did not safely restore reward bindings")
+
+control:ResetKeyActions()
+Assert(reward1.hotkey == nil and reward2.hotkey == nil,
+    "reward keycaps survived the reward page reset")
+control:SetAction("Confirm", confirm)
 control:SetIndexedAction(1, option1)
 control:SetIndexedAction(2, option2)
 FlushTimers()

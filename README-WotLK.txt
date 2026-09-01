@@ -1,4 +1,4 @@
-Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r29
+Dialogue UI 1.0.5 d - Wrath 3.3.5a backport r30
 
 Target
   WoW 3.3.5a, build 12340, Interface 30300.
@@ -18,10 +18,12 @@ Legacy safety
   actions, and unsafe raw keyboard/gamepad capture on legacy clients. The
   configured Confirm key is instead scoped to a visible, enabled Accept,
   Continue, or Complete Quest button and is released on page changes, hiding,
-  combat, and world transitions. Visible gossip and quest-list choices 1-9 use
-  temporary numbered bindings with the original themed keycap treatment; the
-  full numbered set is consumed immediately after a choice to prevent repeats
-  while the server changes pages. Escape closes the active Dialogue UI panel.
+  combat, and world transitions. Visible gossip, quest-list, and selectable
+  reward choices 1-9 use temporary numbered bindings with the original themed
+  keycap treatment. Page-changing choices consume their numbered set to prevent
+  repeats while the server responds; reward numbers remain available so the
+  selected item can be changed before completion. Escape closes the active
+  Dialogue UI panel.
   These safeguards keep the addon out of protected action state and prevent it
   from swallowing ability keys used by action bars such as ElvUI.
 
@@ -46,7 +48,9 @@ Conflicts
   from Immersion and DialogKey while Dialogue UI owns the interaction, then
   restores it afterward. Ascension's custom gossip manager remains available
   for item-driven panels such as the Travel Permit, while its stock Blizzard
-  GossipFrame fallback is gated to prevent a duplicate panel beside Dialogue UI.
+  GossipFrame is safely suppressed to prevent a duplicate panel beside Dialogue
+  UI. Auto-provided quest popup removal resolves live tracker hooks, preventing
+  accepted or completed offers from remaining as stale Questie cards.
 
 Diagnostics
   Dialogue UI records up to 12 of its own Lua errors in the account-wide
